@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--gpu_ids', type=str, default='0', help='GPU IDs (e.g. "0", "1", "0,1")')
+    parser.add_argument('--gpu_ids', type=str, default='1', help='GPU IDs (e.g. "0", "1", "0,1")')
     parser.add_argument('--data_dir', type=str, default='PromptIR/data')
     parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
