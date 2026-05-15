@@ -90,7 +90,9 @@ def main():
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
         every_n_epochs=10,
-        save_top_k=-1,
+        save_top_k=1,
+        monitor="train_loss_epoch",
+        mode="min",
         filename="promptir-epoch{epoch:02d}",
     )
 
