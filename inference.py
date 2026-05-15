@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import zipfile
 
 import numpy as np
 import torch
@@ -14,7 +15,6 @@ from net.model import PromptIR
 
 
 def pad_to_multiple(img, base=16):
-    """Pad image tensor (C, H, W) to be divisible by base."""
     _, h, w = img.shape
     pad_h = (base - h % base) % base
     pad_w = (base - w % base) % base
@@ -46,6 +46,10 @@ def inference(ckpt_path, test_dir, output_path, device="cuda"):
     dataset = HW4TestDataset(test_dir)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
+    # Write pred.npz to a temp location, then zip it
+    os.makedirs("submission", exist_ok=True)
+    npz_path = "submission/pred.npz"
+
     pred_dict = {}
     with torch.no_grad():
         for name, img in tqdm(loader, desc="Inference"):
@@ -56,8 +60,6 @@ def inference(ckpt_path, test_dir, output_path, device="cuda"):
             padded, h, w = pad_to_multiple(img)
 
             restored = model(padded)
-
-            # Unpad to original size
             restored = restored[:, :, :original_h, :original_w]
 
             restored = torch.clamp(restored, 0, 1)
@@ -65,14 +67,16 @@ def inference(ckpt_path, test_dir, output_path, device="cuda"):
 
             pred_dict[f"{name}.png"] = restored
 
-    np.savez_compressed(output_path, **pred_dict)
-    print(f"Saved {len(pred_dict)} images to {output_path}")
+    np.savez_compressed(npz_path, **pred_dict)
+    print(f"Wrote {len(pred_dict)} images to {npz_path}")
 
-    # Verify
-    verify = np.load(output_path)
-    print(f"Verification: {len(verify.keys())} keys")
-    k0 = list(verify.keys())[0]
-    print(f"  {k0}: shape={verify[k0].shape}, dtype={verify[k0].dtype}")
+    # Zip pred.npz into the output archive
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.write(npz_path, "pred.npz")
+    print(f"Submission zip: {output_path}")
+
+    # Clean up temp npz
+    os.remove(npz_path)
 
 
 if __name__ == "__main__":
@@ -80,12 +84,12 @@ if __name__ == "__main__":
     parser.add_argument("checkpoint", type=str)
     parser.add_argument("--test_dir", type=str, default="PromptIR/data/Test/degraded")
     parser.add_argument("--output", type=str, default=None,
-                        help="Output npz path (default: submission/<ckpt_name>.npz)")
+                        help="Output zip path (default: submission/<ckpt_name>.zip)")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
     if args.output is None:
         ckpt_name = os.path.splitext(os.path.basename(args.checkpoint))[0]
-        args.output = f"submission/{ckpt_name}.npz"
+        args.output = f"submission/{ckpt_name}.zip"
 
     inference(args.checkpoint, args.test_dir, args.output, args.device)

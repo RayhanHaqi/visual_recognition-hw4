@@ -18,7 +18,7 @@ echo "Best epoch: $BEST_EPOCH"
 
 echo ""
 echo "=== Stage 1 submission ==="
-python inference.py "$BEST_CKPT" --output "submission/stage1-epoch${BEST_EPOCH}.npz"
+python inference.py "$BEST_CKPT" --output "submission/stage1-epoch${BEST_EPOCH}.zip"
 
 echo ""
 echo "=== Stage 2: Retraining on all data (train+val) for $BEST_EPOCH epochs ==="
@@ -32,9 +32,9 @@ fi
 
 echo ""
 echo "=== Stage 2 submission ==="
-python inference.py "$STAGE2_CKPT" --output "submission/stage2-epoch${BEST_EPOCH}-merged.npz"
+python inference.py "$STAGE2_CKPT" --output "submission/stage2-epoch${BEST_EPOCH}-merged.zip"
 
 echo ""
 echo "=== Done ==="
-echo "Stage 1: submission/stage1-epoch${BEST_EPOCH}.npz"
-echo "Stage 2: submission/stage2-epoch${BEST_EPOCH}-merged.npz"
+echo "Stage 1: submission/stage1-epoch${BEST_EPOCH}.zip"
+echo "Stage 2: submission/stage2-epoch${BEST_EPOCH}-merged.zip"
