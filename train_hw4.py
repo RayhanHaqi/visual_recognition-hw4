@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--num_gpus', type=int, default=1)
+    parser.add_argument('--num_gpus', type=int, default=1, help='Number of GPUs (0 for CPU)')
     parser.add_argument('--data_dir', type=str, default='PromptIR/data')
     parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
@@ -92,11 +92,16 @@ def main():
 
     logger = TensorBoardLogger(save_dir=args.log_dir, name="hw4_promptir")
 
+    if args.num_gpus == 0:
+        accelerator, devices, strategy = "cpu", 1, "auto"
+    else:
+        accelerator, devices, strategy = "auto", args.num_gpus, "auto"
+
     trainer = pl.Trainer(
         max_epochs=args.epochs,
-        accelerator="auto",
-        devices=args.num_gpus,
-        strategy="auto",
+        accelerator=accelerator,
+        devices=devices,
+        strategy=strategy,
         logger=logger,
         callbacks=[checkpoint_callback],
     )
