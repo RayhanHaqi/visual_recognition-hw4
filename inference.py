@@ -79,8 +79,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint", type=str)
     parser.add_argument("--test_dir", type=str, default="PromptIR/data/Test/degraded")
-    parser.add_argument("--output", type=str, default="submission/pred.npz")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Output npz path (default: submission/<ckpt_name>.npz)")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
+
+    if args.output is None:
+        ckpt_name = os.path.splitext(os.path.basename(args.checkpoint))[0]
+        args.output = f"submission/{ckpt_name}.npz"
 
     inference(args.checkpoint, args.test_dir, args.output, args.device)
