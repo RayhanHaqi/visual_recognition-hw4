@@ -76,6 +76,7 @@ def main():
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
     parser.add_argument('--log_dir', type=str, default='log')
     parser.add_argument('--precision', type=str, default='32', help='16-mixed or 32')
+    parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     args = parser.parse_args()
 
     print("Training configuration:")
@@ -92,22 +93,25 @@ def main():
         num_workers=args.num_workers,
     )
 
-    valset = HW4ValDataset(args.data_dir)
-    valloader = DataLoader(
-        valset,
-        batch_size=args.batch_size,
-        pin_memory=True,
-        shuffle=False,
-        num_workers=args.num_workers,
-    )
+    if args.no_val:
+        valloader = None
+    else:
+        valset = HW4ValDataset(args.data_dir)
+        valloader = DataLoader(
+            valset,
+            batch_size=args.batch_size,
+            pin_memory=True,
+            shuffle=False,
+            num_workers=args.num_workers,
+        )
 
     model = PromptIRModel(lr=args.lr, warmup_epochs=args.warmup, max_epochs=args.epochs)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
         every_n_epochs=10,
-        save_top_k=1,
-        monitor="val_loss",
+        save_top_k=-1 if args.no_val else 1,
+        monitor=None if args.no_val else "val_loss",
         mode="min",
         filename="promptir-epoch{epoch:02d}",
     )
