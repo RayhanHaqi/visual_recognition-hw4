@@ -1,0 +1,16 @@
+data/hw4_realse_dataset/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+checkpoints/
+*.ckpt
+*.pth
+
+submission/pred.npz
+example_submission/
+release_folder/
+PromptIR/
+report/
+*.zip
+.ipynb_checkpoints/
