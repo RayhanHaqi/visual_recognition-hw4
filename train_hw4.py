@@ -5,6 +5,9 @@ import sys
 # Add PromptIR to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'PromptIR'))
 
+# Blackwell (RTX 50xx) workarounds: disable Triton JIT
+os.environ.setdefault("TRITON_INTERPRET", "1")
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -65,12 +68,8 @@ def main():
     parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
     parser.add_argument('--log_dir', type=str, default='log')
-    parser.add_argument('--precision', type=str, default='16-mixed', help='16-mixed or 32')
+    parser.add_argument('--precision', type=str, default='32', help='16-mixed or 32')
     args = parser.parse_args()
-
-    # Enable Tensor Cores on RTX 50xx
-    if torch.cuda.is_available():
-        torch.set_float32_matmul_precision('high')
 
     print("Training configuration:")
     for k, v in vars(args).items():
