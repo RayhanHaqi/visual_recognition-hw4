@@ -60,17 +60,17 @@ def main():
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
-parser.add_argument('--gpu_ids', type=str, default='1', help='GPU IDs (e.g. "0", "1", "0,1")')
-parser.add_argument('--data_dir', type=str, default='PromptIR/data')
-parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
-parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
-parser.add_argument('--log_dir', type=str, default='log')
-parser.add_argument('--precision', type=str, default='16-mixed', help='16-mixed or 32')
-args = parser.parse_args()
+    parser.add_argument('--gpu_ids', type=str, default='1', help='GPU IDs (e.g. "0", "1", "0,1")')
+    parser.add_argument('--data_dir', type=str, default='PromptIR/data')
+    parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
+    parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
+    parser.add_argument('--log_dir', type=str, default='log')
+    parser.add_argument('--precision', type=str, default='16-mixed', help='16-mixed or 32')
+    args = parser.parse_args()
 
-# Enable Tensor Cores on RTX 50xx
-if torch.cuda.is_available():
-    torch.set_float32_matmul_precision('high')
+    # Enable Tensor Cores on RTX 50xx
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision('high')
 
     print("Training configuration:")
     for k, v in vars(args).items():
