@@ -17,7 +17,7 @@ import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-from hw4_dataset import HW4TrainDataset
+from hw4_dataset import HW4TrainDataset, HW4ValDataset
 from utils.schedulers import LinearWarmupCosineAnnealingLR
 from net.model import PromptIR
 
@@ -40,6 +40,13 @@ class PromptIRModel(pl.LightningModule):
         restored = self.net(degrad_patch)
         loss = self.loss_fn(restored, clean_patch)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        name, degrad_patch, clean_patch = batch
+        restored = self.net(degrad_patch)
+        loss = self.loss_fn(restored, clean_patch)
+        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
         return loss
 
     def lr_scheduler_step(self, scheduler, metric):
@@ -85,13 +92,22 @@ def main():
         num_workers=args.num_workers,
     )
 
+    valset = HW4ValDataset(args.data_dir)
+    valloader = DataLoader(
+        valset,
+        batch_size=args.batch_size,
+        pin_memory=True,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
+
     model = PromptIRModel(lr=args.lr, warmup_epochs=args.warmup, max_epochs=args.epochs)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
         every_n_epochs=10,
         save_top_k=1,
-        monitor="train_loss_epoch",
+        monitor="val_loss",
         mode="min",
         filename="promptir-epoch{epoch:02d}",
     )
@@ -109,7 +125,7 @@ def main():
         callbacks=[checkpoint_callback],
     )
 
-    trainer.fit(model=model, train_dataloaders=trainloader)
+    trainer.fit(model=model, train_dataloaders=trainloader, val_dataloaders=valloader)
 
 
 if __name__ == '__main__':
