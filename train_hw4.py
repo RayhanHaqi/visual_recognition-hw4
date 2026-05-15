@@ -77,6 +77,7 @@ def main():
     parser.add_argument('--log_dir', type=str, default='log')
     parser.add_argument('--precision', type=str, default='32', help='16-mixed or 32')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
+    parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     args = parser.parse_args()
 
     print("Training configuration:")
