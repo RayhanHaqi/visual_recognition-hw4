@@ -1,5 +1,9 @@
 import argparse
 import os
+import sys
+
+# Add PromptIR to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'PromptIR'))
 
 import torch
 import torch.nn as nn
