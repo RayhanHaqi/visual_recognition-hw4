@@ -3,7 +3,7 @@
 # Usage: bash train-runpod.sh [bs] [lr] [epochs]
 #   bs=8  lr=2e-4  epochs=150
 
-BS=${1:-8}
+BS=${1:-4}
 LR=${2:-2e-4}
 EPOCHS=${3:-150}
 RUN_NAME="bs${BS}_lr${LR}_ep${EPOCHS}_runpod"
