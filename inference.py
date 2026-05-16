@@ -15,7 +15,8 @@ from net.model import PromptIR
 
 
 def pad_to_multiple(img, base=16):
-    _, h, w = img.shape
+    # img: (1, C, H, W) from DataLoader with batch_size=1
+    b, c, h, w = img.shape
     pad_h = (base - h % base) % base
     pad_w = (base - w % base) % base
     if pad_h == 0 and pad_w == 0:

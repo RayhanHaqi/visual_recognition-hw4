@@ -13,7 +13,10 @@ if [ -z "$BEST_CKPT" ]; then
     exit 1
 fi
 
-BEST_EPOCH=$(basename "$BEST_CKPT" | sed 's/promptir-epoch\([0-9]*\)\.ckpt/\1/')
+BEST_EPOCH=$(basename "$BEST_CKPT" | grep -oP 'epoch=\K[0-9]+' | head -1)
+if [ -z "$BEST_EPOCH" ]; then
+    BEST_EPOCH=$(basename "$BEST_CKPT" | sed 's/.*epoch\([0-9]*\)\.ckpt/\1/')
+fi
 echo "Best epoch: $BEST_EPOCH"
 
 echo ""

@@ -116,7 +116,7 @@ def main():
         save_top_k=-1 if args.no_val else 1,
         monitor=None if args.no_val else "val_loss",
         mode="min",
-        filename="promptir-epoch{epoch:02d}",
+        filename="promptir-{epoch:02d}-{val_loss:.4f}",
     )
 
     logger = TensorBoardLogger(save_dir=args.log_dir, name="hw4_promptir")
