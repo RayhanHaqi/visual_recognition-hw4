@@ -1,4 +1,5 @@
 data/hw4_realse_dataset/
+__MACOSX/
 __pycache__/
 *.pyc
 *.pyo
