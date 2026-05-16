@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'PromptIR'))
 os.environ.setdefault("TRITON_INTERPRET", "1")
 
 import torch
+
+torch.set_float32_matmul_precision('high')
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
