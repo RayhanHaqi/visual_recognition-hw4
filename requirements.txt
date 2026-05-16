@@ -10,3 +10,4 @@ einops
 matplotlib
 scikit-image
 opencv-python
+gdown
