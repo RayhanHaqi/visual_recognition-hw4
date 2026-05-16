@@ -67,7 +67,7 @@ class PromptIRModel(pl.LightningModule):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=150)
-    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--lr', type=float, default=2e-4)
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
