@@ -12,6 +12,5 @@ example_submission/
 release_folder/
 PromptIR/
 report/
-*.zip
 .ipynb_checkpoints/
 hw4_dataset.zip
