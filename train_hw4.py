@@ -5,17 +5,11 @@ import sys
 # Add PromptIR to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'PromptIR'))
 
-# Blackwell (RTX 50xx) workarounds — only for sm_120+ GPUs
+# Blackwell (RTX 50xx): disable Triton JIT, enable Tensor Cores
 os.environ.setdefault("TRITON_INTERPRET", "1")
 
 import torch
 
-_is_blackwell = False
-if torch.cuda.is_available():
-    cap = torch.cuda.get_device_capability()
-    if cap is not None and cap[0] >= 12:
-        _is_blackwell = True
-        torch.backends.cudnn.enabled = False
 torch.set_float32_matmul_precision('high')
 import torch.nn as nn
 import torch.optim as optim
