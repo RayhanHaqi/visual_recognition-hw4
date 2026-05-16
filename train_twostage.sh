@@ -25,7 +25,7 @@ python inference.py "$BEST_CKPT" --output "submission/stage1-epoch${BEST_EPOCH}.
 
 echo ""
 echo "=== Stage 2: Retraining on all data (train+val) for $BEST_EPOCH epochs ==="
-python train_hw4.py --gpu_ids 0 --epochs "$BEST_EPOCH" --merge_val --no_val --precision 32 --batch_size 2
+python train_hw4.py --gpu_ids 0 --epochs "$BEST_EPOCH" --merge_val --no_val --precision 32 --batch_size 2 --lr 5e-5
 
 STAGE2_CKPT=$(ls checkpoints/promptir-epoch*.ckpt 2>/dev/null | head -1)
 if [ -z "$STAGE2_CKPT" ]; then
