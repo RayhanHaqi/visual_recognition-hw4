@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "=== Stage 1: Training with validation to find best epoch ==="
-python train_hw4.py --gpu_ids 0 --epochs 150 --precision 32 --batch_size 4
+python train_hw4.py --gpu_ids 0 --epochs 150 --precision 32 --batch_size 2
 
 # Find best epoch from checkpoint filename
 BEST_CKPT=$(ls checkpoints/promptir-epoch*.ckpt 2>/dev/null | head -1)
@@ -22,7 +22,7 @@ python inference.py "$BEST_CKPT" --output "submission/stage1-epoch${BEST_EPOCH}.
 
 echo ""
 echo "=== Stage 2: Retraining on all data (train+val) for $BEST_EPOCH epochs ==="
-python train_hw4.py --gpu_ids 0 --epochs "$BEST_EPOCH" --merge_val --no_val --precision 32 --batch_size 4
+python train_hw4.py --gpu_ids 0 --epochs "$BEST_EPOCH" --merge_val --no_val --precision 32 --batch_size 2
 
 STAGE2_CKPT=$(ls checkpoints/promptir-epoch*.ckpt 2>/dev/null | head -1)
 if [ -z "$STAGE2_CKPT" ]; then

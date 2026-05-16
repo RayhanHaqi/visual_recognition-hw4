@@ -67,7 +67,7 @@ class PromptIRModel(pl.LightningModule):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=150)
-    parser.add_argument('--batch_size', type=int, default=4)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--lr', type=float, default=2e-4)
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
@@ -102,10 +102,10 @@ def main():
         valset = HW4ValDataset(args.data_dir)
         valloader = DataLoader(
             valset,
-            batch_size=args.batch_size,
+            batch_size=1,  # full images, not patches
             pin_memory=True,
             shuffle=False,
-            num_workers=args.num_workers,
+            num_workers=2,
         )
 
     model = PromptIRModel(lr=args.lr, warmup_epochs=args.warmup, max_epochs=args.epochs)
