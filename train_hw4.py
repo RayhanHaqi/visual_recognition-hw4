@@ -5,11 +5,14 @@ import sys
 # Add PromptIR to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'PromptIR'))
 
-# Blackwell (RTX 50xx) workarounds: disable Triton JIT
+# Blackwell (RTX 50xx) workarounds:
+#   Triton JIT incompatible → use interpreter
+#   cuDNN depthwise conv crashes (CUDNN_STATUS_EXECUTION_FAILED) → disable cuDNN
 os.environ.setdefault("TRITON_INTERPRET", "1")
 
 import torch
 
+torch.backends.cudnn.enabled = False
 torch.set_float32_matmul_precision('high')
 import torch.nn as nn
 import torch.optim as optim
@@ -67,7 +70,7 @@ class PromptIRModel(pl.LightningModule):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=150)
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=2e-4)
     parser.add_argument('--warmup', type=int, default=15)
     parser.add_argument('--patch_size', type=int, default=128)
