@@ -112,7 +112,7 @@ def main():
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
-        every_n_epochs=1,
+        every_n_epochs=5,
         save_top_k=-1 if args.no_val else 1,
         monitor=None if args.no_val else "val_loss",
         mode="min",
