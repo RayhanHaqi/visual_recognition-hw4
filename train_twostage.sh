@@ -44,7 +44,7 @@ echo "Stage 2: submission/stage2-epoch${BEST_EPOCH}-merged.zip"
 
 echo ""
 echo "=== Saving to GitHub ==="
-git pull --rebase
 git add -A
 git commit -m "Auto-save: two-stage training complete (best=${BEST_EPOCH})" || echo "(nothing to commit)"
+git pull --rebase
 git push
