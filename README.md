@@ -51,8 +51,13 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 
 | Submission | Public PSNR | Notes |
 | --- | ---: | --- |
+| stage1-p192-tta.zip | 31.35 | Current best, patch 192, best epoch 144, submitted 2026-05-19 |
+| stage1-p192-tta.zip | 31.35 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
+| stage1-p192-original.zip | 30.93 | Same checkpoint without TTA, submitted 2026-05-19 |
+| stage1-p192-original.zip | 30.93 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
 | stage1-epoch149.zip | 30.52 | Best known public score, submitted 2026-05-17 |
 | stage1-epoch149.zip | 30.23 | Current scripts, submitted 2026-05-18 |
 | stage2-epoch149-merged.zip | 21.69 | Merged-data Stage 2 degraded performance |
 
-Current final candidate: `submission/stage1-epoch149.zip` from the 30.52 public-score run, unless a later submission beats it.
+Current final candidate: `submission/stage1-p192-tta.zip` with public PSNR 31.35.
+The 200-epoch p192 rerun did not improve public PSNR over the 150-epoch run.
