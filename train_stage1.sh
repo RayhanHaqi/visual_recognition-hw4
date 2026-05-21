@@ -3,11 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-PATCH_SIZE=${PATCH_SIZE:-192}
-BATCH_SIZE=${BATCH_SIZE:-2}
+PATCH_SIZE=${PATCH_SIZE:-384}
+BATCH_SIZE=${BATCH_SIZE:-1}
 EPOCHS=${EPOCHS:-150}
 GPU_IDS=${GPU_IDS:-0}
 PRECISION=${PRECISION:-32}
+SAVE_TOP_K=${SAVE_TOP_K:-3}
+EMA=${EMA:-1}
+EMA_DECAY=${EMA_DECAY:-0.9999}
 RUN_NAME="stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}"
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
@@ -15,16 +18,44 @@ echo "=== Stage 1: Training with validation ==="
 echo "Patch size: $PATCH_SIZE"
 echo "Batch size: $BATCH_SIZE"
 echo "Epochs: $EPOCHS"
+echo "Save top-k: $SAVE_TOP_K"
+echo "EMA: $EMA"
 
-python train_hw4.py \
-    --gpu_ids "$GPU_IDS" \
-    --epochs "$EPOCHS" \
-    --precision "$PRECISION" \
-    --batch_size "$BATCH_SIZE" \
-    --patch_size "$PATCH_SIZE" \
+mkdir -p "$CKPT_DIR"
+if compgen -G "$CKPT_DIR/promptir-epoch*.ckpt" > /dev/null; then
+    echo "ERROR: Existing checkpoints found in $CKPT_DIR"
+    echo "Move or delete that directory before rerunning to avoid averaging stale checkpoints."
+    exit 1
+fi
+
+TRAIN_ARGS=(
+    --gpu_ids "$GPU_IDS"
+    --epochs "$EPOCHS"
+    --precision "$PRECISION"
+    --batch_size "$BATCH_SIZE"
+    --patch_size "$PATCH_SIZE"
     --ckpt_dir "$CKPT_DIR"
+    --save_top_k "$SAVE_TOP_K"
+)
+if [ "$EMA" = "1" ]; then
+    TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
+fi
 
-BEST_CKPT=$(ls "$CKPT_DIR"/promptir-epoch*.ckpt 2>/dev/null | head -1)
+python train_hw4.py "${TRAIN_ARGS[@]}"
+
+BEST_CKPT=$(python - "$CKPT_DIR" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+ckpts = list(Path(sys.argv[1]).glob("promptir-epoch*.ckpt"))
+def val_loss(path):
+    match = re.search(r"val_loss=([0-9]+(?:\.[0-9]+)?)", path.name)
+    return float(match.group(1)) if match else float("inf")
+for path in sorted(ckpts, key=val_loss)[:1]:
+    print(path)
+PY
+)
 if [ -z "$BEST_CKPT" ]; then
     echo "ERROR: No checkpoint found in $CKPT_DIR"
     exit 1
@@ -46,9 +77,34 @@ echo "=== TTA inference ==="
 python inference.py "$BEST_CKPT" --tta --output "submission/stage1-p${PATCH_SIZE}-tta.zip"
 
 echo ""
+echo "=== Averaging top checkpoints ==="
+mapfile -t AVG_CKPTS < <(python - "$CKPT_DIR" "$SAVE_TOP_K" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+ckpt_dir = Path(sys.argv[1])
+limit = int(sys.argv[2])
+ckpts = list(ckpt_dir.glob("promptir-epoch*.ckpt"))
+def val_loss(path):
+    match = re.search(r"val_loss=([0-9]+(?:\.[0-9]+)?)", path.name)
+    return float(match.group(1)) if match else float("inf")
+for path in sorted(ckpts, key=val_loss)[:limit]:
+    print(path)
+PY
+)
+AVG_CKPT="checkpoints/${RUN_NAME}-avg${SAVE_TOP_K}.ckpt"
+python average_checkpoints.py "${AVG_CKPTS[@]}" --output "$AVG_CKPT"
+
+echo ""
+echo "=== Averaged TTA inference ==="
+python inference.py "$AVG_CKPT" --tta --output "submission/stage1-p${PATCH_SIZE}-avg${SAVE_TOP_K}-tta.zip"
+
+echo ""
 echo "=== Done ==="
 echo "Original: submission/stage1-p${PATCH_SIZE}-original.zip"
 echo "TTA: submission/stage1-p${PATCH_SIZE}-tta.zip"
+echo "Averaged TTA: submission/stage1-p${PATCH_SIZE}-avg${SAVE_TOP_K}-tta.zip"
 
 echo ""
 echo "=== Saving to GitHub ==="

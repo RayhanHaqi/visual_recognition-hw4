@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import EMAWeightAveraging, ModelCheckpoint
 
 from hw4_dataset import HW4TrainDataset, HW4ValDataset
 from utils.schedulers import LinearWarmupCosineAnnealingLR
@@ -80,7 +80,12 @@ def main():
     parser.add_argument('--precision', type=str, default='32', help='16-mixed or 32')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
+    parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
+    parser.add_argument('--ema', action='store_true', help='Use EMA weights for validation/checkpointing')
+    parser.add_argument('--ema_decay', type=float, default=0.9999)
     args = parser.parse_args()
+    if args.no_val and args.save_top_k not in (-1, 0, 1):
+        raise ValueError("--no_val supports --save_top_k only -1, 0, or 1 because no validation metric is available")
 
     print("Training configuration:")
     for k, v in vars(args).items():
@@ -113,11 +118,14 @@ def main():
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
         every_n_epochs=5,
-        save_top_k=-1 if args.no_val else 1,
+        save_top_k=args.save_top_k,
         monitor=None if args.no_val else "val_loss",
         mode="min",
         filename="promptir-{epoch:02d}-{val_loss:.4f}",
     )
+    callbacks = [checkpoint_callback]
+    if args.ema:
+        callbacks.append(EMAWeightAveraging(decay=args.ema_decay))
 
     logger = TensorBoardLogger(save_dir=args.log_dir, name="hw4_promptir")
 
@@ -129,7 +137,7 @@ def main():
         strategy="auto",
         precision=args.precision,
         logger=logger,
-        callbacks=[checkpoint_callback],
+        callbacks=callbacks,
     )
 
     trainer.fit(model=model, train_dataloaders=trainloader, val_dataloaders=valloader)
