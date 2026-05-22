@@ -7,14 +7,16 @@ class TrainStage1ScriptTest(unittest.TestCase):
     def test_stage1_script_trains_once_and_emits_original_and_tta_outputs(self):
         script = Path("train_stage1.sh").read_text()
 
-        self.assertIn("PATCH_SIZE=${PATCH_SIZE:-384}", script)
+        self.assertIn("PATCH_SIZE=${PATCH_SIZE:-256}", script)
         self.assertIn("BATCH_SIZE=${BATCH_SIZE:-1}", script)
         self.assertIn("SAVE_TOP_K=${SAVE_TOP_K:-3}", script)
-        self.assertIn("EMA=${EMA:-1}", script)
+        self.assertIn("EMA=${EMA:-0}", script)
         self.assertIn("EMA_DECAY=${EMA_DECAY:-0.9999}", script)
+        self.assertIn("MONITOR=${MONITOR:-val_psnr}", script)
         self.assertEqual(script.count("python train_hw4.py"), 1)
         self.assertIn("--patch_size \"$PATCH_SIZE\"", script)
         self.assertIn("--save_top_k \"$SAVE_TOP_K\"", script)
+        self.assertIn("--monitor \"$MONITOR\"", script)
         self.assertIn("--ema", script)
         self.assertIn("--ema_decay \"$EMA_DECAY\"", script)
         self.assertIn("submission/stage1-p${PATCH_SIZE}-original.zip", script)
@@ -30,16 +32,21 @@ class TrainStage1ScriptTest(unittest.TestCase):
         script = Path("train_hw4.py").read_text()
 
         self.assertIn("--save_top_k", script)
+        self.assertIn("--monitor", script)
         self.assertIn("--ema", script)
         self.assertIn("--ema_decay", script)
+        self.assertIn("val_psnr", script)
+        self.assertIn('mode="max" if args.monitor == "val_psnr" else "min"', script)
+        self.assertIn('{val_psnr:.6f}', script)
         self.assertIn("EMAWeightAveraging", script)
         self.assertIn("save_top_k=args.save_top_k", script)
         self.assertNotIn("args.save_top_k = -1", script)
 
-    def test_stage1_script_parses_val_loss_without_ckpt_suffix(self):
+    def test_stage1_script_parses_metric_without_ckpt_suffix(self):
         script = Path("train_stage1.sh").read_text()
 
-        self.assertIn(r"val_loss=([0-9]+(?:\.[0-9]+)?)", script)
+        self.assertIn(r"rf'{metric}=([0-9]+(?:\.[0-9]+)?)'", script)
+        self.assertIn('missing = float("-inf") if reverse else float("inf")', script)
         self.assertNotIn(r"val_loss=([0-9.]+)", script)
 
     def test_stage1_script_autosave_commits_before_rebase(self):

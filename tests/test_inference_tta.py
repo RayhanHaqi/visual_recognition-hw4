@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 import torch
 
 from inference import (
@@ -7,6 +8,7 @@ from inference import (
     apply_tta_transform,
     invert_tta_transform,
     restore_image,
+    tensor_to_uint8,
 )
 
 
@@ -32,6 +34,14 @@ class InferenceTTATest(unittest.TestCase):
 
         self.assertEqual(restored.shape, img.shape)
         self.assertTrue(torch.allclose(restored, torch.ones_like(img)))
+
+    def test_tensor_to_uint8_rounds_instead_of_flooring(self):
+        restored = torch.tensor([[[[0.0, 0.5, 1.0 / 255.0, 254.6 / 255.0, 1.0]]]])
+
+        converted = tensor_to_uint8(restored)
+
+        self.assertEqual(converted.dtype, np.uint8)
+        self.assertEqual(converted.tolist(), [[[0, 128, 1, 255, 255]]])
 
 
 if __name__ == "__main__":

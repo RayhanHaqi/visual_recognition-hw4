@@ -51,7 +51,12 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 
 | Submission | Public PSNR | Notes |
 | --- | ---: | --- |
-| stage1-p192-tta.zip | 31.35 | Current best, patch 192, best epoch 144, submitted 2026-05-19 |
+| stage1-p256-tta.zip | 31.64 | Current best, patch 256, best epoch 124, submitted 2026-05-21 |
+| stage1-p384-avg3-tta.zip | 31.50 | Patch 384, EMA, top-3 checkpoint averaging, best epoch 109, submitted 2026-05-22 |
+| stage1-p384-tta.zip | 31.49 | Patch 384, EMA, same best checkpoint without checkpoint averaging, submitted 2026-05-22 |
+| stage1-p384-original.zip | 30.78 | Patch 384, EMA, no TTA, submitted 2026-05-22 |
+| stage1-p256-original.zip | 30.79 | Patch 256, no TTA, submitted 2026-05-21 |
+| stage1-p192-tta.zip | 31.35 | Patch 192, best epoch 144, submitted 2026-05-19 |
 | stage1-p192-tta.zip | 31.35 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
 | stage1-p192-original.zip | 30.93 | Same checkpoint without TTA, submitted 2026-05-19 |
 | stage1-p192-original.zip | 30.93 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
@@ -59,5 +64,5 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 | stage1-epoch149.zip | 30.23 | Current scripts, submitted 2026-05-18 |
 | stage2-epoch149-merged.zip | 21.69 | Merged-data Stage 2 degraded performance |
 
-Current final candidate: `submission/stage1-p192-tta.zip` with public PSNR 31.35.
-The 200-epoch p192 rerun did not improve public PSNR over the 150-epoch run.
+Current final candidate: `submission/stage1-p256-tta.zip` with public PSNR 31.64.
+The p384 EMA + checkpoint-averaging run did not improve public PSNR over p256 TTA.

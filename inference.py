@@ -67,6 +67,11 @@ def restore_image(model, img, use_tta=False):
     return torch.stack(restored, dim=0).mean(dim=0)
 
 
+def tensor_to_uint8(img):
+    arr = torch.clamp(img.squeeze(0), 0, 1).cpu().numpy()
+    return np.rint(arr * 255).clip(0, 255).astype(np.uint8)
+
+
 def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False):
     print(f"Checkpoint: {ckpt_path}")
     print(f"Test: {test_dir}")
@@ -107,8 +112,7 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False):
             restored = restore_image(model, padded, use_tta=use_tta)
             restored = restored[:, :, :original_h, :original_w]
 
-            restored = torch.clamp(restored, 0, 1)
-            restored = (restored.squeeze(0).cpu().numpy() * 255).astype(np.uint8)
+            restored = tensor_to_uint8(restored)
 
             pred_dict[f"{name}.png"] = restored
 

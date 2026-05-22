@@ -13,13 +13,13 @@ def crop_img(img, base=16):
 
 
 def random_augmentation(*imgs):
-    flag_aug = random.randint(1, 7)
+    flag_aug = random.randint(0, 7)
     out = []
     for img in imgs:
         aug = img.copy()
         if flag_aug in (1, 3, 5, 7):
             aug = np.flipud(aug).copy()
-        rot = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3}[flag_aug]
+        rot = {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3}[flag_aug]
         if rot:
             aug = np.rot90(aug, rot).copy()
         out.append(aug)

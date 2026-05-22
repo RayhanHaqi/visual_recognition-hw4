@@ -3,15 +3,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-PATCH_SIZE=${PATCH_SIZE:-384}
+PATCH_SIZE=${PATCH_SIZE:-256}
 BATCH_SIZE=${BATCH_SIZE:-1}
 EPOCHS=${EPOCHS:-150}
 GPU_IDS=${GPU_IDS:-0}
 PRECISION=${PRECISION:-32}
 SAVE_TOP_K=${SAVE_TOP_K:-3}
-EMA=${EMA:-1}
+EMA=${EMA:-0}
 EMA_DECAY=${EMA_DECAY:-0.9999}
-RUN_NAME="stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}"
+MONITOR=${MONITOR:-val_psnr}
+RUN_NAME="stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${MONITOR}"
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
 echo "=== Stage 1: Training with validation ==="
@@ -20,6 +21,7 @@ echo "Batch size: $BATCH_SIZE"
 echo "Epochs: $EPOCHS"
 echo "Save top-k: $SAVE_TOP_K"
 echo "EMA: $EMA"
+echo "Monitor: $MONITOR"
 
 mkdir -p "$CKPT_DIR"
 if compgen -G "$CKPT_DIR/promptir-epoch*.ckpt" > /dev/null; then
@@ -36,6 +38,7 @@ TRAIN_ARGS=(
     --patch_size "$PATCH_SIZE"
     --ckpt_dir "$CKPT_DIR"
     --save_top_k "$SAVE_TOP_K"
+    --monitor "$MONITOR"
 )
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
@@ -43,16 +46,19 @@ fi
 
 python train_hw4.py "${TRAIN_ARGS[@]}"
 
-BEST_CKPT=$(python - "$CKPT_DIR" <<'PY'
+BEST_CKPT=$(python - "$CKPT_DIR" "$MONITOR" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 ckpts = list(Path(sys.argv[1]).glob("promptir-epoch*.ckpt"))
-def val_loss(path):
-    match = re.search(r"val_loss=([0-9]+(?:\.[0-9]+)?)", path.name)
-    return float(match.group(1)) if match else float("inf")
-for path in sorted(ckpts, key=val_loss)[:1]:
+metric = sys.argv[2]
+reverse = metric == "val_psnr"
+missing = float("-inf") if reverse else float("inf")
+def metric_value(path):
+    match = re.search(rf'{metric}=([0-9]+(?:\.[0-9]+)?)', path.name)
+    return float(match.group(1)) if match else missing
+for path in sorted(ckpts, key=metric_value, reverse=reverse)[:1]:
     print(path)
 PY
 )
@@ -78,18 +84,21 @@ python inference.py "$BEST_CKPT" --tta --output "submission/stage1-p${PATCH_SIZE
 
 echo ""
 echo "=== Averaging top checkpoints ==="
-mapfile -t AVG_CKPTS < <(python - "$CKPT_DIR" "$SAVE_TOP_K" <<'PY'
+mapfile -t AVG_CKPTS < <(python - "$CKPT_DIR" "$SAVE_TOP_K" "$MONITOR" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 ckpt_dir = Path(sys.argv[1])
 limit = int(sys.argv[2])
+metric = sys.argv[3]
+reverse = metric == "val_psnr"
 ckpts = list(ckpt_dir.glob("promptir-epoch*.ckpt"))
-def val_loss(path):
-    match = re.search(r"val_loss=([0-9]+(?:\.[0-9]+)?)", path.name)
-    return float(match.group(1)) if match else float("inf")
-for path in sorted(ckpts, key=val_loss)[:limit]:
+missing = float("-inf") if reverse else float("inf")
+def metric_value(path):
+    match = re.search(rf'{metric}=([0-9]+(?:\.[0-9]+)?)', path.name)
+    return float(match.group(1)) if match else missing
+for path in sorted(ckpts, key=metric_value, reverse=reverse)[:limit]:
     print(path)
 PY
 )

@@ -48,7 +48,10 @@ class PromptIRModel(pl.LightningModule):
         name, degrad_patch, clean_patch = batch
         restored = self.net(degrad_patch)
         loss = self.loss_fn(restored, clean_patch)
+        mse = torch.mean((torch.clamp(restored, 0, 1) - clean_patch) ** 2)
+        psnr = -10 * torch.log10(torch.clamp(mse, min=1e-10))
         self.log("val_loss", loss, on_epoch=True, prog_bar=True)
+        self.log("val_psnr", psnr, on_epoch=True, prog_bar=True)
         return loss
 
     def lr_scheduler_step(self, scheduler, metric):
@@ -81,6 +84,7 @@ def main():
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
+    parser.add_argument('--monitor', choices=['val_loss', 'val_psnr'], default='val_loss')
     parser.add_argument('--ema', action='store_true', help='Use EMA weights for validation/checkpointing')
     parser.add_argument('--ema_decay', type=float, default=0.9999)
     args = parser.parse_args()
@@ -119,9 +123,9 @@ def main():
         dirpath=args.ckpt_dir,
         every_n_epochs=5,
         save_top_k=args.save_top_k,
-        monitor=None if args.no_val else "val_loss",
-        mode="min",
-        filename="promptir-{epoch:02d}-{val_loss:.4f}",
+        monitor=None if args.no_val else args.monitor,
+        mode="max" if args.monitor == "val_psnr" else "min",
+        filename="promptir-{epoch:02d}-{val_loss:.6f}-{val_psnr:.6f}",
     )
     callbacks = [checkpoint_callback]
     if args.ema:
