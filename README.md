@@ -51,6 +51,9 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 
 | Submission | Public PSNR | Notes |
 | --- | ---: | --- |
+| stage1-p256-avg3-tta.zip | 31.73 | Tied current best, patch 256, PSNR-monitored top-3 checkpoint averaging, best epoch 149, submitted 2026-05-23 |
+| stage1-p256-tta.zip | 31.73 | Tied current best, patch 256, PSNR-monitored, best epoch 149, submitted 2026-05-23 |
+| stage1-p256-original.zip | 31.27 | Patch 256, PSNR-monitored, no TTA, submitted 2026-05-23 |
 | stage1-p256-tta.zip | 31.64 | Current best, patch 256, best epoch 124, submitted 2026-05-21 |
 | stage1-p384-avg3-tta.zip | 31.50 | Patch 384, EMA, top-3 checkpoint averaging, best epoch 109, submitted 2026-05-22 |
 | stage1-p384-tta.zip | 31.49 | Patch 384, EMA, same best checkpoint without checkpoint averaging, submitted 2026-05-22 |
@@ -64,5 +67,5 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 | stage1-epoch149.zip | 30.23 | Current scripts, submitted 2026-05-18 |
 | stage2-epoch149-merged.zip | 21.69 | Merged-data Stage 2 degraded performance |
 
-Current final candidate: `submission/stage1-p256-tta.zip` with public PSNR 31.64.
-The p384 EMA + checkpoint-averaging run did not improve public PSNR over p256 TTA.
+Current final candidates: `submission/stage1-p256-avg3-tta.zip` and `submission/stage1-p256-tta.zip`, both with public PSNR 31.73.
+The p256 PSNR-monitored run improved over the earlier p256 TTA score; avg3 TTA and single-checkpoint TTA tied on the public split.

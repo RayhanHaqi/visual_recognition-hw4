@@ -41,6 +41,19 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn("EMAWeightAveraging", script)
         self.assertIn("save_top_k=args.save_top_k", script)
         self.assertNotIn("args.save_top_k = -1", script)
+        self.assertIn("--loss_type", script)
+        self.assertIn("--mse_weight", script)
+        self.assertIn("--task_conditioning", script)
+        self.assertIn("--sipl_lite", script)
+
+    def test_stage1_script_exposes_promptir_only_experiment_flags(self):
+        text = Path("train_stage1.sh").read_text()
+        self.assertIn('LOSS_TYPE=${LOSS_TYPE:-l1}', text)
+        self.assertIn('MSE_WEIGHT=${MSE_WEIGHT:-0.05}', text)
+        self.assertIn('TASK_CONDITIONING=${TASK_CONDITIONING:-0}', text)
+        self.assertIn('SIPL_LITE=${SIPL_LITE:-0}', text)
+        self.assertIn('SIPL_START_ALPHA=${SIPL_START_ALPHA:-0.5}', text)
+        self.assertIn('SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}', text)
 
     def test_stage1_script_parses_metric_without_ckpt_suffix(self):
         script = Path("train_stage1.sh").read_text()

@@ -12,6 +12,12 @@ SAVE_TOP_K=${SAVE_TOP_K:-3}
 EMA=${EMA:-0}
 EMA_DECAY=${EMA_DECAY:-0.9999}
 MONITOR=${MONITOR:-val_psnr}
+LOSS_TYPE=${LOSS_TYPE:-l1}
+MSE_WEIGHT=${MSE_WEIGHT:-0.05}
+TASK_CONDITIONING=${TASK_CONDITIONING:-0}
+SIPL_LITE=${SIPL_LITE:-0}
+SIPL_START_ALPHA=${SIPL_START_ALPHA:-0.5}
+SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}
 RUN_NAME="stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${MONITOR}"
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
@@ -22,6 +28,12 @@ echo "Epochs: $EPOCHS"
 echo "Save top-k: $SAVE_TOP_K"
 echo "EMA: $EMA"
 echo "Monitor: $MONITOR"
+echo "Loss type: $LOSS_TYPE"
+echo "MSE weight: $MSE_WEIGHT"
+echo "Task conditioning: $TASK_CONDITIONING"
+echo "SIPL-lite: $SIPL_LITE"
+echo "SIPL start alpha: $SIPL_START_ALPHA"
+echo "SIPL refine weight: $SIPL_REFINE_WEIGHT"
 
 mkdir -p "$CKPT_DIR"
 if compgen -G "$CKPT_DIR/promptir-epoch*.ckpt" > /dev/null; then
@@ -39,9 +51,17 @@ TRAIN_ARGS=(
     --ckpt_dir "$CKPT_DIR"
     --save_top_k "$SAVE_TOP_K"
     --monitor "$MONITOR"
+    --loss_type "$LOSS_TYPE"
+    --mse_weight "$MSE_WEIGHT"
 )
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
+fi
+if [ "$TASK_CONDITIONING" = "1" ]; then
+    TRAIN_ARGS+=(--task_conditioning)
+fi
+if [ "$SIPL_LITE" = "1" ]; then
+    TRAIN_ARGS+=(--sipl_lite --sipl_start_alpha "$SIPL_START_ALPHA" --sipl_refine_weight "$SIPL_REFINE_WEIGHT")
 fi
 
 python train_hw4.py "${TRAIN_ARGS[@]}"
