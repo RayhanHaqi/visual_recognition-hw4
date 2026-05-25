@@ -15,9 +15,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+import time
+
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.callbacks import EMAWeightAveraging, ModelCheckpoint
+from lightning.pytorch.callbacks import EMAWeightAveraging, ModelCheckpoint, TQDMProgressBar
 
 from hw4_dataset import HW4TrainDataset, HW4ValDataset
 from utils.schedulers import LinearWarmupCosineAnnealingLR
@@ -156,6 +158,40 @@ class PromptIRModel(pl.LightningModule):
         return [optimizer], [scheduler]
 
 
+class TimeEstimateProgressBar(TQDMProgressBar):
+    def __init__(self, refresh_rate=1):
+        super().__init__(refresh_rate=refresh_rate)
+        self.start_time = None
+
+    def on_train_start(self, trainer, pl_module):
+        self.start_time = time.time()
+        super().on_train_start(trainer, pl_module)
+
+    def get_metrics(self, trainer, pl_module):
+        metrics = super().get_metrics(trainer, pl_module)
+        if self.start_time is None:
+            return metrics
+
+        elapsed = time.time() - self.start_time
+        completed = trainer.global_step
+        total = trainer.estimated_stepping_batches
+
+        metrics["elapsed"] = self._format_seconds(elapsed)
+        if completed > 0 and total:
+            remaining = elapsed * max(total - completed, 0) / completed
+            metrics["remaining"] = self._format_seconds(remaining)
+        return metrics
+
+    @staticmethod
+    def _format_seconds(seconds):
+        seconds = int(seconds)
+        hours, rem = divmod(seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        if hours:
+            return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes:d}:{seconds:02d}"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=150)
@@ -232,7 +268,7 @@ def main():
         mode="max" if args.monitor == "val_psnr" else "min",
         filename="promptir-{epoch:02d}-{val_loss:.6f}-{val_psnr:.6f}",
     )
-    callbacks = [checkpoint_callback]
+    callbacks = [checkpoint_callback, TimeEstimateProgressBar()]
     if args.ema:
         callbacks.append(EMAWeightAveraging(decay=args.ema_decay))
 
