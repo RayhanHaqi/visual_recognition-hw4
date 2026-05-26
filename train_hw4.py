@@ -167,6 +167,27 @@ class TimeEstimateProgressBar(TQDMProgressBar):
         self.start_time = time.time()
         super().on_train_start(trainer, pl_module)
 
+    def on_train_epoch_end(self, trainer, pl_module):
+        super().on_train_epoch_end(trainer, pl_module)
+        if self.start_time is None:
+            return
+
+        elapsed = time.time() - self.start_time
+        epoch = trainer.current_epoch
+        max_epochs = trainer.max_epochs
+        completed = trainer.global_step
+        total = trainer.estimated_stepping_batches
+
+        elapsed_str = self._format_seconds(elapsed)
+        part1 = f"[time] epoch={epoch}/{max_epochs} elapsed={elapsed_str}"
+
+        if completed > 0 and total:
+            remaining = elapsed * max(total - completed, 0) / completed
+            remaining_str = self._format_seconds(remaining)
+            print(f"{part1} remaining={remaining_str}")
+        else:
+            print(part1)
+
     def get_metrics(self, trainer, pl_module):
         metrics = super().get_metrics(trainer, pl_module)
         if self.start_time is None:
