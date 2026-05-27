@@ -11,9 +11,11 @@ os.environ.setdefault("TRITON_INTERPRET", "1")
 import torch
 
 torch.set_float32_matmul_precision('high')
+torch.backends.cudnn.benchmark = True
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.utils.checkpoint import checkpoint_sequential
 
 import time
 
@@ -93,11 +95,39 @@ class TaskConditionedRestorer(nn.Module):
         return self.backbone(conditioned) + out_bias
 
 
+class CheckpointedSequential(nn.Module):
+    def __init__(self, blocks):
+        super().__init__()
+        self.blocks = blocks
+
+    def forward(self, x):
+        return checkpoint_sequential(self.blocks, len(self.blocks), x, use_reentrant=False)
+
+
+def apply_gradient_checkpointing(model, mode):
+    if mode == "none":
+        return
+    target_attrs = {
+        "highres": ["encoder_level1", "decoder_level1", "refinement"],
+        "full": ["encoder_level1", "encoder_level2", "encoder_level3",
+                  "latent", "decoder_level1", "decoder_level2", "decoder_level3",
+                  "refinement"],
+    }[mode]
+    for attr in target_attrs:
+        if hasattr(model, attr):
+            seq = getattr(model, attr)
+            if isinstance(seq, nn.Sequential) and len(seq) > 0:
+                setattr(model, attr, CheckpointedSequential(seq))
+
+
 class PromptIRModel(pl.LightningModule):
     def __init__(self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
-                 task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5):
+                 task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5,
+                 gradient_checkpointing="none"):
         super().__init__()
-        self.net = TaskConditionedRestorer(PromptIR(decoder=True), enabled=task_conditioning)
+        backbone = PromptIR(decoder=True)
+        apply_gradient_checkpointing(backbone, gradient_checkpointing)
+        self.net = TaskConditionedRestorer(backbone, enabled=task_conditioning)
         self.loss_fn = build_loss_fn(loss_type, mse_weight)
         self.lr = lr
         self.warmup_epochs = warmup_epochs
@@ -226,7 +256,10 @@ def main():
     parser.add_argument('--de_type', nargs='+', default=['desnow', 'derain'])
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
     parser.add_argument('--log_dir', type=str, default='log')
-    parser.add_argument('--precision', type=str, default='32', help='16-mixed or 32')
+    parser.add_argument('--precision', type=str, default='32', help='32, 16-mixed, bf16-mixed')
+    parser.add_argument('--gradient_checkpointing', choices=['none', 'highres', 'full'], default='none',
+                        help='Activation checkpointing: none | highres (full-res blocks) | full (all blocks)')
+    parser.add_argument('--compile', action='store_true', help='Use torch.compile for training speed')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
@@ -279,7 +312,12 @@ def main():
                           loss_type=args.loss_type, mse_weight=args.mse_weight,
                           task_conditioning=args.task_conditioning,
                           sipl_lite=args.sipl_lite, sipl_start_alpha=args.sipl_start_alpha,
-                          sipl_refine_weight=args.sipl_refine_weight)
+                          sipl_refine_weight=args.sipl_refine_weight,
+                          gradient_checkpointing=args.gradient_checkpointing)
+
+    if args.compile:
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(model)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
