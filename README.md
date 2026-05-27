@@ -51,21 +51,21 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 
 | Submission | Public PSNR | Notes |
 | --- | ---: | --- |
-| stage1-p256-avg3-tta.zip | 31.73 | Tied current best, patch 256, PSNR-monitored top-3 checkpoint averaging, best epoch 149, submitted 2026-05-23 |
-| stage1-p256-tta.zip | 31.73 | Tied current best, patch 256, PSNR-monitored, best epoch 149, submitted 2026-05-23 |
-| stage1-p256-original.zip | 31.27 | Patch 256, PSNR-monitored, no TTA, submitted 2026-05-23 |
-| stage1-p256-tta.zip | 31.64 | Current best, patch 256, best epoch 124, submitted 2026-05-21 |
-| stage1-p384-avg3-tta.zip | 31.50 | Patch 384, EMA, top-3 checkpoint averaging, best epoch 109, submitted 2026-05-22 |
-| stage1-p384-tta.zip | 31.49 | Patch 384, EMA, same best checkpoint without checkpoint averaging, submitted 2026-05-22 |
-| stage1-p384-original.zip | 30.78 | Patch 384, EMA, no TTA, submitted 2026-05-22 |
-| stage1-p256-original.zip | 30.79 | Patch 256, no TTA, submitted 2026-05-21 |
-| stage1-p192-tta.zip | 31.35 | Patch 192, best epoch 144, submitted 2026-05-19 |
-| stage1-p192-tta.zip | 31.35 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
-| stage1-p192-original.zip | 30.93 | Same checkpoint without TTA, submitted 2026-05-19 |
-| stage1-p192-original.zip | 30.93 | 200-epoch rerun, same best epoch 144, submitted 2026-05-20 |
-| stage1-epoch149.zip | 30.52 | Best known public score, submitted 2026-05-17 |
-| stage1-epoch149.zip | 30.23 | Current scripts, submitted 2026-05-18 |
-| stage2-epoch149-merged.zip | 21.69 | Merged-data Stage 2 degraded performance |
+| **stage1-p256-tta-run9-l1mse.zip** | **31.77** | **Final selected submission, L1+MSE ($\lambda$=0.05), p256, PSNR-monitored, best epoch 139** |
+| stage1-p256-avg5-tta-run9-l1mse.zip | 31.76 | Run 9 top-5 checkpoint averaging TTA |
+| stage1-p256-original-run9-l1mse.zip | 31.31 | Run 9 no TTA |
+| stage1-p256-tta-run12-l1mse.zip | 31.72 | Run 12 L1+MSE ($\lambda$=0.10), p256, best epoch 139 |
+| stage1-p256-avg5-tta-run12-l1mse.zip | 31.72 | Run 12 top-5 checkpoint averaging TTA |
+| stage1-p256-original-run12-l1mse.zip | 31.31 | Run 12 no TTA |
+| stage1-p256-tta-run11-l1mse-ema.zip | 31.72 | Run 11 L1+MSE ($\lambda$=0.05) + EMA |
+| stage1-p256-avg5-tta-run11-l1mse-ema.zip | 31.73 | Run 11 EMA + top-5 averaging |
+| stage1-p256-tta-run10-task.zip | 31.19 | Run 10 task-conditioned TTA |
+| stage1-p256-avg3-tta.zip | 31.73 | p256, PSNR-monitored top-3 checkpoint averaging, best epoch 149 |
+| stage1-p256-tta.zip | 31.73 | p256, PSNR-monitored, best epoch 149 |
+| stage1-p384-avg3-tta.zip | 31.50 | p384, EMA, top-3 checkpoint averaging, best epoch 109 |
+| stage1-p384-tta.zip | 31.49 | p384, EMA, best epoch 109 |
+| stage1-p192-tta.zip | 31.35 | p192, best epoch 144 |
+| stage1-p192-original.zip | 30.93 | p192 no TTA |
+| stage1-epoch149.zip | 30.52 | Initial baseline p128 |
 
-Current final candidates: `submission/stage1-p256-avg3-tta.zip` and `submission/stage1-p256-tta.zip`, both with public PSNR 31.73.
-The p256 PSNR-monitored run improved over the earlier p256 TTA score; avg3 TTA and single-checkpoint TTA tied on the public split.
+Final selected submission: `submission/stage1-p256-tta-run9-l1mse.zip` at **31.77 PSNR**. Run 9 (L1+MSE $\lambda$=0.05) remains the best configuration. Run 12 ($\lambda$=0.10) matched Run 11 at 31.72 but did not surpass the Run 9 baseline. Run 10 (task conditioning, 31.19) was the worst performer.

@@ -158,7 +158,7 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 \textbf{9} & \textbf{p256, bs=1, L1+MSE ($\lambda$=0.05)} & \textbf{139} & \textbf{original / TTA / avg5 TTA} & \textbf{31.31 / 31.77 / 31.76} \\
 10 & p256, L1+MSE + task cond. & 139 & original / TTA / avg5 TTA & 30.73 / 31.19 / 31.18 \\
 11 & p256, L1+MSE + EMA & 129 & original / TTA / avg5 TTA & 31.28 / 31.72 / 31.73 \\
-12 & p256, L1+MSE ($\lambda$=0.10) & — & running; pending submission & TBD \\ \bottomrule
+12 & p256, L1+MSE ($\lambda$=0.10) & 139 & original / TTA / avg5 TTA & 31.31 / 31.72 / 31.72 \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -179,6 +179,9 @@ Exponential Moving Average (EMA) weight averaging was tested in isolation on the
 \subsubsection{Checkpoint Averaging: Mixed Results}
 Top-3 checkpoint averaging (avg3 TTA) tied single-checkpoint TTA at 31.73 in Run 8. Top-5 averaging (avg5 TTA) in Run 9 scored 31.76, slightly below the single-checkpoint TTA of 31.77. This suggests that the best single checkpoint captures near-optimal performance and averaging with nearby checkpoints does not provide additional robustness in the PromptIR loss landscape at 150 epochs.
 
+\subsubsection{Higher MSE Weighting Hurts Performance (Run 12)}
+Run 12 tested a larger MSE weight of $\lambda=0.10$ with the L1+MSE loss, hypothesizing that stronger alignment with the PSNR metric would yield further gains. Instead, public TTA PSNR dropped from 31.77 to 31.72 --- matching Run 11 (EMA) and falling below the Run 9 baseline. The original (no-TTA) score also stayed at 31.31, identical to Run 9 despite the higher MSE contribution. This suggests that $\lambda=0.05$ already provides the optimal balance between L1-driven perceptual structure and MSE-driven pixel accuracy; increasing the MSE weight introduces over-emphasis on pixel-wise errors at the expense of the structural priors L1 provides.
+
 \subsubsection{Effectiveness of TTA}
 8-way geometric TTA consistently provided a substantial boost: $+0.48$ dB on average across all runs. This is significantly larger than typical TTA gains in classification, reflecting the importance of geometric consistency in restoration networks trained with random D4 augmentations. Run 9 TTA (31.77) vs original (31.31) represents a +0.46 dB gain.
 
@@ -196,7 +199,8 @@ Table \ref{tab:val_vs_public} compares best local validation PSNR with CodaBench
 8  (L1, p256)     & 30.7184 & 31.73 & 1.01 \\
 9  (L1+MSE $\lambda$=0.05) & 30.7490 & 31.77 & 1.02 \\
 10 (L1+MSE + task)          & 30.7306 & 31.19 & 0.46 \\
-11 (L1+MSE + EMA)           & 30.7558 & 31.72 & 0.96 \\ \bottomrule
+11 (L1+MSE + EMA)           & 30.7558 & 31.72 & 0.96 \\
+12 (L1+MSE $\lambda$=0.10)   & 30.7149 & 31.72 & 1.01 \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -252,7 +256,7 @@ The fact that task conditioning and EMA both failed despite strong theoretical m
 \subsubsection{Recommendations for Further Improvement}
 Given the remaining 2.2 dB gap between derain and desnow, future experiments should focus on degradation-specific enhancements:
 \begin{itemize}
-    \item Stronger MSE weighting ($\lambda = 0.10$ or $0.20$) to better align with PSNR.
+    \item Even stronger MSE weighting ($\lambda = 0.20$) was not tested; $\lambda = 0.10$ was worse than 0.05.
     \item Rain-specific data augmentation (rain-streak augmentation, intensity variation).
     \item Longer training (200+ epochs) with aggressive cosine restarts.
     \item Mixed-precision training (FP16) to enable higher batch sizes.
