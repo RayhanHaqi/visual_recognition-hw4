@@ -8,7 +8,7 @@ class TrainStage1ScriptTest(unittest.TestCase):
         script = Path("train_stage1.sh").read_text()
 
         self.assertIn("PATCH_SIZE=${PATCH_SIZE:-256}", script)
-        self.assertIn("BATCH_SIZE=${BATCH_SIZE:-2}", script)
+        self.assertIn("BATCH_SIZE=${BATCH_SIZE:-1}", script)
         self.assertIn("SAVE_TOP_K=${SAVE_TOP_K:-5}", script)
         self.assertIn("EMA=${EMA:-0}", script)
         self.assertIn("EMA_DECAY=${EMA_DECAY:-0.9999}", script)
@@ -49,6 +49,7 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn("--sipl_lite", script)
         self.assertIn("--gradient_checkpointing", script)
         self.assertIn("--compile", script)
+        self.assertIn("--rain_loss_weight", script)
         self.assertIn("CheckpointedSequential", script)
         self.assertIn("checkpoint_sequential", script)
         self.assertIn("torch.backends.cudnn.benchmark = True", script)
@@ -56,13 +57,14 @@ class TrainStage1ScriptTest(unittest.TestCase):
     def test_stage1_script_exposes_promptir_only_experiment_flags(self):
         text = Path("train_stage1.sh").read_text()
         self.assertIn('LOSS_TYPE=${LOSS_TYPE:-l1_mse}', text)
-        self.assertIn('MSE_WEIGHT=${MSE_WEIGHT:-0.025}', text)
+        self.assertIn('MSE_WEIGHT=${MSE_WEIGHT:-0.05}', text)
         self.assertIn('TASK_CONDITIONING=${TASK_CONDITIONING:-0}', text)
         self.assertIn('SIPL_LITE=${SIPL_LITE:-0}', text)
         self.assertIn('SIPL_START_ALPHA=${SIPL_START_ALPHA:-0.5}', text)
         self.assertIn('SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}', text)
         self.assertIn('GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING:-none}', text)
         self.assertIn('COMPILE=${COMPILE:-0}', text)
+        self.assertIn('RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.25}', text)
         self.assertIn('--gradient_checkpointing "$GRADIENT_CHECKPOINTING"', text)
 
     def test_stage1_script_parses_metric_without_ckpt_suffix(self):

@@ -123,7 +123,7 @@ def apply_gradient_checkpointing(model, mode):
 class PromptIRModel(pl.LightningModule):
     def __init__(self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
                  task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5,
-                 gradient_checkpointing="none"):
+                 gradient_checkpointing="none", rain_loss_weight=1.0):
         super().__init__()
         backbone = PromptIR(decoder=True)
         apply_gradient_checkpointing(backbone, gradient_checkpointing)
@@ -136,6 +136,7 @@ class PromptIRModel(pl.LightningModule):
         self.sipl_lite = sipl_lite
         self.sipl_start_alpha = sipl_start_alpha
         self.sipl_refine_weight = sipl_refine_weight
+        self.rain_loss_weight = rain_loss_weight
         self.save_hyperparameters()
 
     def forward(self, x, de_id=None):
@@ -144,7 +145,17 @@ class PromptIRModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         ([clean_name, de_id], degrad_patch, clean_patch) = batch
         restored = self.net(degrad_patch, de_id=de_id)
-        loss = self.loss_fn(restored, clean_patch)
+
+        if self.rain_loss_weight != 1.0:
+            bs = clean_patch.size(0)
+            loss_per_sample = torch.zeros(bs, device=clean_patch.device)
+            for i in range(bs):
+                loss_per_sample[i] = self.loss_fn(restored[i:i+1], clean_patch[i:i+1])
+            is_rain = (torch.tensor(de_id, device=clean_patch.device) == 1).float()
+            weights = 1.0 + (self.rain_loss_weight - 1.0) * is_rain
+            loss = (loss_per_sample * weights).mean()
+        else:
+            loss = self.loss_fn(restored, clean_patch)
         if self.sipl_lite:
             alpha = sipl_blend_alpha(self.current_epoch, self.max_epochs, self.sipl_start_alpha)
             second_input = sipl_second_input(restored, clean_patch, alpha=alpha, training=True)
@@ -260,6 +271,10 @@ def main():
     parser.add_argument('--gradient_checkpointing', choices=['none', 'highres', 'full'], default='none',
                         help='Activation checkpointing: none | highres (full-res blocks) | full (all blocks)')
     parser.add_argument('--compile', action='store_true', help='Use torch.compile for training speed')
+    parser.add_argument('--derain_oversample', type=int, default=1,
+                        help='Duplicate rain samples N times per epoch (1=no oversampling)')
+    parser.add_argument('--rain_loss_weight', type=float, default=1.0,
+                        help='Multiply rain sample losses by this factor (1.0=no weighting, 1.25 recommended)')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
@@ -313,7 +328,8 @@ def main():
                           task_conditioning=args.task_conditioning,
                           sipl_lite=args.sipl_lite, sipl_start_alpha=args.sipl_start_alpha,
                           sipl_refine_weight=args.sipl_refine_weight,
-                          gradient_checkpointing=args.gradient_checkpointing)
+                          gradient_checkpointing=args.gradient_checkpointing,
+                          rain_loss_weight=args.rain_loss_weight)
 
     if args.compile:
         import logging

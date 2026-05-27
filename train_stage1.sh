@@ -4,23 +4,25 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 PATCH_SIZE=${PATCH_SIZE:-256}
-BATCH_SIZE=${BATCH_SIZE:-2}
+BATCH_SIZE=${BATCH_SIZE:-1}
 EPOCHS=${EPOCHS:-150}
 GPU_IDS=${GPU_IDS:-0}
-PRECISION=${PRECISION:-bf16-mixed}
+PRECISION=${PRECISION:-32}
 SAVE_TOP_K=${SAVE_TOP_K:-5}
 EMA=${EMA:-0}
 EMA_DECAY=${EMA_DECAY:-0.9999}
 MONITOR=${MONITOR:-val_psnr}
 LOSS_TYPE=${LOSS_TYPE:-l1_mse}
-MSE_WEIGHT=${MSE_WEIGHT:-0.025}
+MSE_WEIGHT=${MSE_WEIGHT:-0.05}
 TASK_CONDITIONING=${TASK_CONDITIONING:-0}
 SIPL_LITE=${SIPL_LITE:-0}
 SIPL_START_ALPHA=${SIPL_START_ALPHA:-0.5}
 SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}
 GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING:-none}
 COMPILE=${COMPILE:-0}
-RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${PRECISION}-${LOSS_TYPE}${MSE_WEIGHT//./}}
+DERAIN_OVERSAMPLE=${DERAIN_OVERSAMPLE:-1}
+RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.25}
+RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}-rainw${RAIN_LOSS_WEIGHT//./}}
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
 echo "=== Stage 1: Training with validation ==="
@@ -36,10 +38,9 @@ echo "Task conditioning: $TASK_CONDITIONING"
 echo "SIPL-lite: $SIPL_LITE"
 echo "Gradient checkpointing: $GRADIENT_CHECKPOINTING"
 echo "Compile: $COMPILE"
+echo "Derain oversample: ${DERAIN_OVERSAMPLE}x"
+echo "Rain loss weight: ${RAIN_LOSS_WEIGHT}"
 echo "Run name: $RUN_NAME"
-echo ""
-echo "Recommended env (4090):"
-echo "  export PYTORCH_ALLOC_CONF=expandable_segments:True"
 
 mkdir -p "$CKPT_DIR"
 if compgen -G "$CKPT_DIR/promptir-epoch*.ckpt" > /dev/null; then
@@ -60,6 +61,8 @@ TRAIN_ARGS=(
     --loss_type "$LOSS_TYPE"
     --mse_weight "$MSE_WEIGHT"
     --gradient_checkpointing "$GRADIENT_CHECKPOINTING"
+    --derain_oversample "$DERAIN_OVERSAMPLE"
+    --rain_loss_weight "$RAIN_LOSS_WEIGHT"
 )
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
