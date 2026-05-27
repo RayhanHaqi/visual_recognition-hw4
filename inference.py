@@ -78,6 +78,26 @@ def _has_conditioning_keys(state_dict):
     return any(key in state_dict for key in ("input_scale.weight", "backbone.conv_in.weight"))
 
 
+_CHECKPOINT_ATTRS = (
+    "encoder_level1", "encoder_level2", "encoder_level3",
+    "latent", "decoder_level1", "decoder_level2", "decoder_level3",
+    "refinement",
+)
+
+
+def _strip_checkpoint_wrapper(state_dict):
+    result = {}
+    for k, v in state_dict.items():
+        clean = k
+        for attr in _CHECKPOINT_ATTRS:
+            prefix = f"{attr}.blocks."
+            if k.startswith(prefix):
+                clean = attr + k[len(prefix) - 1:]
+                break
+        result[clean] = v
+    return result
+
+
 def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, task_mode="none",
               use_sipl_lite=False):
     print(f"Checkpoint: {ckpt_path}")
@@ -98,6 +118,7 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, ta
         state_dict = ckpt
 
     has_cond = _has_conditioning_keys(state_dict)
+    state_dict = _strip_checkpoint_wrapper(state_dict)
     if has_cond:
         base_model = PromptIR(decoder=True)
         model = TaskConditionedRestorer(base_model, enabled=True)

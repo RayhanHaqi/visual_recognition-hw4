@@ -316,8 +316,11 @@ def main():
                           gradient_checkpointing=args.gradient_checkpointing)
 
     if args.compile:
+        import logging
+        logging.getLogger("torch._dynamo").setLevel(logging.WARNING)
         torch._dynamo.config.suppress_errors = True
         model = torch.compile(model)
+        print("  compile: enabled (torch.compile applied)")
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,

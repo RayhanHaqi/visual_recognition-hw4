@@ -5,6 +5,7 @@ import torch
 
 from inference import (
     TTA_MODES,
+    _strip_checkpoint_wrapper,
     apply_tta_transform,
     invert_tta_transform,
     restore_image,
@@ -42,6 +43,20 @@ class InferenceTTATest(unittest.TestCase):
 
         self.assertEqual(converted.dtype, np.uint8)
         self.assertEqual(converted.tolist(), [[[0, 128, 1, 255, 255]]])
+
+    def test_strip_checkpoint_wrapper_removes_blocks_prefix(self):
+        wrapped = {
+            "encoder_level1.blocks.0.attn.weight": 1,
+            "latent.5.norm.weight": 2,
+            "refinement.blocks.2.mlp.weight": 3,
+            "conv_in.weight": 4,
+        }
+        unwrapped = _strip_checkpoint_wrapper(wrapped)
+        self.assertEqual(unwrapped["encoder_level1.0.attn.weight"], 1)
+        self.assertEqual(unwrapped["latent.5.norm.weight"], 2)
+        self.assertEqual(unwrapped["refinement.2.mlp.weight"], 3)
+        self.assertEqual(unwrapped["conv_in.weight"], 4)
+        self.assertEqual(len(unwrapped), len(wrapped))
 
 
 if __name__ == "__main__":
