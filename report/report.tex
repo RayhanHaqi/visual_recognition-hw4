@@ -99,7 +99,7 @@ The PromptIR model \cite{potlapalli2023} is used as the core restoration network
     \item \textbf{Output Head:} A convolutional layer maps decoder features back to a 3-channel restored image.
 \end{itemize}
 
-The total model size is 35.6 million trainable parameters, well-suited for $256 \times 256$ image restoration on a single RTX 4090 GPU with batch size 1.
+The total model size is 35.6 million trainable parameters, well-suited for $256 \times 256$ image restoration on a single RTX 4090 GPU with batch size up to 3 under bfloat16 mixed precision.
 
 \subsection{Training Pipeline}
 The default training configuration uses:
@@ -107,7 +107,7 @@ The default training configuration uses:
     \item \textbf{Loss:} L1 loss between restored and clean images (later upgraded to $L1 + \alpha\cdot\text{MSE}$).
     \item \textbf{Optimizer:} AdamW with learning rate $2 \times 10^{-4}$.
     \item \textbf{LR Schedule:} LinearWarmupCosineAnnealingLR with 15 epochs of linear warmup followed by cosine annealing to near-zero over 150 epochs.
-    \item \textbf{Batch Size:} 1 (full $256 \times 256$ images with no gradient accumulation).
+    \item \textbf{Batch Size:} 1--3 (full $256 \times 256$ images). Bfloat16 mixed precision enables BS=3 without OOM.
     \item \textbf{Checkpointing:} Saved every 5 epochs with Top-K monitoring of \texttt{val\_psnr} (later switch from \texttt{val\_loss}).
     \item \textbf{Inference:} Full-image feed-forward with optional 8-way geometric TTA and reflect-padding to the nearest multiple of 16.
     \item \textbf{Output:} Rounded uint8 conversion from $[0,1]$ float tensors using \texttt{np.rint} instead of flooring.
@@ -158,7 +158,8 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 \textbf{9} & \textbf{p256, bs=1, L1+MSE ($\lambda$=0.05)} & \textbf{139} & \textbf{original / TTA / avg5 TTA} & \textbf{31.31 / 31.77 / 31.76} \\
 10 & p256, L1+MSE + task cond. & 139 & original / TTA / avg5 TTA & 30.73 / 31.19 / 31.18 \\
 11 & p256, L1+MSE + EMA & 129 & original / TTA / avg5 TTA & 31.28 / 31.72 / 31.73 \\
-12 & p256, L1+MSE ($\lambda$=0.10) & 139 & original / TTA / avg5 TTA & 31.31 / 31.72 / 31.72 \\ \bottomrule
+12 & p256, L1+MSE ($\lambda$=0.10) & 139 & original / TTA / avg5 TTA & 31.31 / 31.72 / 31.72 \\
+13 & p256, bf16, bs=3, L1+MSE ($\lambda$=0.025), grad-ckpt & -- & pending submission & -- \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -184,6 +185,32 @@ Run 12 tested a larger MSE weight of $\lambda=0.10$ with the L1+MSE loss, hypoth
 
 \subsubsection{Effectiveness of TTA}
 8-way geometric TTA consistently provided a substantial boost: $+0.48$ dB on average across all runs. This is significantly larger than typical TTA gains in classification, reflecting the importance of geometric consistency in restoration networks trained with random D4 augmentations. Run 9 TTA (31.77) vs original (31.31) represents a +0.46 dB gain.
+
+\subsubsection{Memory and Speed Optimizations for Larger Batch Sizes (Run 13)}
+Run 13 introduces a comprehensive memory optimization pipeline targeting a physical batch size of 3 at $256 \times 256$ resolution ($\sim$20--22 GB VRAM) to increase training data diversity per optimization step. Four instrumentation changes were implemented, summarized in Table \ref{tab:opt_flags}.
+
+\begin{table}[htbp]
+\centering
+\caption{Memory and speed optimization flags added for Run 13.}
+\label{tab:opt_flags}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Flag} & \textbf{Effect} & \textbf{Memory Impact} \\ \midrule
+\texttt{--precision bf16-mixed} & Automatic mixed precision with bfloat16 & $\sim$2$\times$ reduction vs fp32 \\
+\texttt{--gradient\_checkpointing highres} & Activation checkpointing on 12 full-resolution blocks & $\sim$40\% activation reduction \\
+\texttt{--compile} & \texttt{torch.compile} graph optimization & Negligible, but +10--20\% throughput \\
+\texttt{cudnn.benchmark=True} & Fast kernel autotuning for fixed shapes & None, speed only \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Bfloat16 mixed precision} is the primary enabler: the 4090 GPU (sm\_89) supports full bfloat16 tensor cores, halving activation memory and increasing arithmetic throughput compared to the previous FP32 configuration. Since PromptIR's L2-normalized attention and GELU activations are numerically stable in bfloat16, precision-related degradation is not expected.
+
+\textbf{Gradient checkpointing} targets only the 12 transformer blocks operating at full $256 \times 256$ resolution (encoder level 1, decoder level 1, and refinement blocks), where activations dominate VRAM. These blocks are wrapped with PyTorch's \texttt{torch.utils.checkpoint.checkpoint\_sequential} with the recommended \texttt{use\_reentrant=False} mode, recomputing intermediate activations during the backward pass instead of storing them. The remaining 35 blocks at lower spatial resolutions are left unmodified to avoid unnecessary compute overhead.
+
+A critical implementation detail is state dict compatibility: checkpointing wraps \texttt{nn.Sequential} blocks with a \texttt{CheckpointedSequential} wrapper that adds a \texttt{blocks.} prefix to parameter keys. The inference pipeline includes a \texttt{\_strip\_checkpoint\_wrapper} utility that normalizes these keys back to the original PromptIR format before \texttt{load\_state\_dict}, ensuring that inference checkpoints can be loaded with or without gradient checkpointing enabled.
+
+\textbf{Run 13 configuration:} $P=256$, $B=3$, bf16-mixed, L1+MSE ($\lambda=0.025$), PSNR-monitored checkpointing, 150 epochs. The reduced $\lambda=0.025$ tests whether lower MSE weighting (below the Run 9 optimum of 0.05) provides additional benefit. Activation checkpointing is held as a fallback (\texttt{GRADIENT\_CHECKPOINTING=highres}) if BS=3 encounters OOM, while \texttt{torch.compile} is available as an opt-in throughput booster. The CUDA allocator is configured with \texttt{PYTORCH\_ALLOC\_CONF=expandable\_segments:True} to reduce memory fragmentation from the 47-transformer-block architecture.
 
 \subsubsection{Validation vs Public Score Correlation}
 Table \ref{tab:val_vs_public} compares best local validation PSNR with CodaBench public scores. Local validation PSNR is computed on the 320-image validation set, while public PSNR is computed on the 100-image hidden test set. The correlation is imperfect but informative.
@@ -254,15 +281,17 @@ The key contributions are:
 The fact that task conditioning and EMA both failed despite strong theoretical motivation highlights an important lesson: on small paired datasets trained from scratch, simple recipe improvements (loss function, checkpoint selection, TTA) often outperform architectural complications. The PromptIR transformer backbone is already a strong restoration model; squeezing additional gains requires careful empirical tuning rather than module additions that risk overfitting.
 
 \subsubsection{Recommendations for Further Improvement}
-Given the remaining 2.2 dB gap between derain and desnow, future experiments should focus on degradation-specific enhancements:
+The Run 13 experiment (ongoing) represents the most promising remaining direction: bfloat16 mixed precision enables batch size 3 without architectural changes, and the reduced MSE weight $\lambda=0.025$ probes whether $\lambda=0.05$ was overshooting the L1-MSE balance. Additional unexplored directions include:
 \begin{itemize}
-    \item Even stronger MSE weighting ($\lambda = 0.20$) was not tested; $\lambda = 0.10$ was worse than 0.05.
-    \item Rain-specific data augmentation (rain-streak augmentation, intensity variation).
-    \item Longer training (200+ epochs) with aggressive cosine restarts.
-    \item Mixed-precision training (FP16) to enable higher batch sizes.
+    \item Rain-specific data augmentation (rain-streak augmentation, intensity variation, heavier dropout for rain images).
+    \item Longer training (200+ epochs) with cosine restarts, now feasible with the faster bf16 training pipeline.
+    \item Derain loss weighting: the 2.2 dB gap between derain and desnow (Table~\ref{tab:pertask}) suggests that up-weighting rain image losses could close the bottleneck without architectural modifications.
+    \item \texttt{torch.compile} for throughput: if the Run 13 pipeline is stable, enabling \texttt{--compile} could reduce training time by 10--20\%, enabling more experiments within the deadline constraint.
 \end{itemize}
 
-The submission with the best public PSNR is \texttt{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77.
+These directions have not been tested; all are contingent on Run 13 results and remaining compute budget.
+
+The submission with the best public PSNR is \texttt{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77. An additional experiment (Run 13) is in progress as of this writing, testing bfloat16 mixed-precision training at batch size 3 with L1+MSE ($\lambda=0.025$); results will be appended to the competition leaderboard before the deadline.
 
 % ==========================================
 % REFERENCES
