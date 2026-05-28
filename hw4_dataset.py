@@ -26,6 +26,22 @@ def random_augmentation(*imgs):
     return out
 
 
+def paired_color_augmentation(*imgs, prob=0.2):
+    if random.random() >= prob:
+        return list(imgs)
+    gamma = random.uniform(0.85, 1.15)
+    brightness = random.uniform(-0.05, 0.05)
+    contrast = random.uniform(0.9, 1.1)
+    out = []
+    for img in imgs:
+        aug = img.astype(np.float32) / 255.0
+        aug = np.clip(aug ** gamma, 0, 1)
+        aug = np.clip(aug * contrast + brightness, 0, 1)
+        aug = (aug * 255).astype(img.dtype)
+        out.append(aug)
+    return out
+
+
 class HW4TrainDataset(Dataset):
 
     def __init__(self, args):
@@ -85,8 +101,38 @@ class HW4TrainDataset(Dataset):
 
     def _crop_patch(self, img_1, img_2):
         H, W = img_1.shape[:2]
-        ind_H = random.randint(0, max(0, H - self.args.patch_size))
-        ind_W = random.randint(0, max(0, W - self.args.patch_size))
+        tau = getattr(self.args, 'hard_patch_tau', 2.0)
+        prob = getattr(self.args, 'hard_patch_prob', 0.0)
+
+        if prob > 0 and random.random() < prob:
+            residual = np.abs(img_1.astype(np.float32) - img_2.astype(np.float32))
+            if residual.ndim == 3:
+                residual = residual.mean(axis=2)
+            res_h = residual.shape[0] - self.args.patch_size
+            res_w = residual.shape[1] - self.args.patch_size
+            if res_h <= 0 and res_w <= 0:
+                return self._crop_patch(img_1, img_2)
+            if res_h <= 0:
+                res_h = 1
+            if res_w <= 0:
+                res_w = 1
+            energy = np.zeros((res_h, res_w), dtype=np.float32)
+            for hh in range(res_h):
+                for ww in range(res_w):
+                    energy[hh, ww] = residual[hh:hh + self.args.patch_size, ww:ww + self.args.patch_size].sum()
+            energy = energy.reshape(-1)
+            energy_exp = np.exp(tau * energy / (energy.max() + 1e-8))
+
+            if energy_exp.sum() <= 0:
+                return self._crop_patch(img_1, img_2)
+            probs = energy_exp / energy_exp.sum()
+            idx = np.random.choice(len(probs), p=probs)
+            ind_H = idx // res_w
+            ind_W = idx % res_w
+        else:
+            ind_H = random.randint(0, max(0, H - self.args.patch_size))
+            ind_W = random.randint(0, max(0, W - self.args.patch_size))
+
         patch_1 = img_1[ind_H:ind_H + self.args.patch_size, ind_W:ind_W + self.args.patch_size]
         patch_2 = img_2[ind_H:ind_H + self.args.patch_size, ind_W:ind_W + self.args.patch_size]
         return patch_1, patch_2
@@ -97,6 +143,8 @@ class HW4TrainDataset(Dataset):
         degrad_img = crop_img(np.array(Image.open(sample["degraded_path"]).convert('RGB')), base=16)
         clean_img = crop_img(np.array(Image.open(sample["clean_path"]).convert('RGB')), base=16)
         degrad_patch, clean_patch = random_augmentation(*self._crop_patch(degrad_img, clean_img))
+        color_prob = getattr(self.args, 'color_aug_prob', 0.0)
+        degrad_patch, clean_patch = paired_color_augmentation(degrad_patch, clean_patch, prob=color_prob)
         clean_patch = self.toTensor(clean_patch)
         degrad_patch = self.toTensor(degrad_patch)
         clean_name = os.path.splitext(os.path.basename(sample["clean_path"]))[0]

@@ -21,8 +21,13 @@ SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}
 GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING:-none}
 COMPILE=${COMPILE:-0}
 DERAIN_OVERSAMPLE=${DERAIN_OVERSAMPLE:-1}
-RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.25}
-RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}-rainw${RAIN_LOSS_WEIGHT//./}}
+RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.0}
+PAIR_MIX_PROB=${PAIR_MIX_PROB:-0.0}
+PAIR_MIX_ALPHA=${PAIR_MIX_ALPHA:-1.2}
+HARD_PATCH_PROB=${HARD_PATCH_PROB:-0.0}
+HARD_PATCH_TAU=${HARD_PATCH_TAU:-2.0}
+COLOR_AUG_PROB=${COLOR_AUG_PROB:-0.0}
+RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}}
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
 echo "=== Stage 1: Training with validation ==="
@@ -40,6 +45,11 @@ echo "Gradient checkpointing: $GRADIENT_CHECKPOINTING"
 echo "Compile: $COMPILE"
 echo "Derain oversample: ${DERAIN_OVERSAMPLE}x"
 echo "Rain loss weight: ${RAIN_LOSS_WEIGHT}"
+echo "PairMix prob: ${PAIR_MIX_PROB}"
+echo "PairMix alpha: ${PAIR_MIX_ALPHA}"
+echo "Hard patch prob: ${HARD_PATCH_PROB}"
+echo "Hard patch tau: ${HARD_PATCH_TAU}"
+echo "Color aug prob: ${COLOR_AUG_PROB}"
 echo "Run name: $RUN_NAME"
 
 mkdir -p "$CKPT_DIR"
@@ -63,6 +73,11 @@ TRAIN_ARGS=(
     --gradient_checkpointing "$GRADIENT_CHECKPOINTING"
     --derain_oversample "$DERAIN_OVERSAMPLE"
     --rain_loss_weight "$RAIN_LOSS_WEIGHT"
+    --pair_mix_prob "$PAIR_MIX_PROB"
+    --pair_mix_alpha "$PAIR_MIX_ALPHA"
+    --hard_patch_prob "$HARD_PATCH_PROB"
+    --hard_patch_tau "$HARD_PATCH_TAU"
+    --color_aug_prob "$COLOR_AUG_PROB"
 )
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")

@@ -38,6 +38,19 @@ class CharbonnierLoss(nn.Module):
         return torch.mean(torch.sqrt(diff * diff + self.eps * self.eps))
 
 
+class CharbonnierMSELoss(nn.Module):
+    def __init__(self, mse_weight=0.05, eps=1e-3):
+        super().__init__()
+        self.mse_weight = mse_weight
+        self.eps = eps
+        self.mse = nn.MSELoss()
+
+    def forward(self, pred, target):
+        diff = pred - target
+        charbonnier = torch.mean(torch.sqrt(diff * diff + self.eps * self.eps))
+        return charbonnier + self.mse_weight * self.mse(pred, target)
+
+
 class L1MSELoss(nn.Module):
     def __init__(self, mse_weight):
         super().__init__()
@@ -56,6 +69,8 @@ def build_loss_fn(loss_type, mse_weight):
         return CharbonnierLoss()
     if loss_type == "l1_mse":
         return L1MSELoss(mse_weight=mse_weight)
+    if loss_type == "charbonnier_mse":
+        return CharbonnierMSELoss(mse_weight=mse_weight)
     raise ValueError(f"Unsupported loss type: {loss_type}")
 
 
@@ -123,7 +138,8 @@ def apply_gradient_checkpointing(model, mode):
 class PromptIRModel(pl.LightningModule):
     def __init__(self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
                  task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5,
-                 gradient_checkpointing="none", rain_loss_weight=1.0):
+                 gradient_checkpointing="none", rain_loss_weight=1.0,
+                 pair_mix_prob=0.0, pair_mix_alpha=1.2):
         super().__init__()
         backbone = PromptIR(decoder=True)
         apply_gradient_checkpointing(backbone, gradient_checkpointing)
@@ -137,6 +153,9 @@ class PromptIRModel(pl.LightningModule):
         self.sipl_start_alpha = sipl_start_alpha
         self.sipl_refine_weight = sipl_refine_weight
         self.rain_loss_weight = rain_loss_weight
+        self.pair_mix_prob = pair_mix_prob
+        self.pair_mix_alpha = pair_mix_alpha
+        self._pair_mix_buffer = None
         self.save_hyperparameters()
 
     def forward(self, x, de_id=None):
@@ -144,6 +163,16 @@ class PromptIRModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         ([clean_name, de_id], degrad_patch, clean_patch) = batch
+
+        if self.pair_mix_prob > 0 and self._pair_mix_buffer is not None:
+            prev_degrad, prev_clean, prev_de_id = self._pair_mix_buffer
+            same_task = prev_de_id == de_id
+            if same_task and torch.rand(1).item() < self.pair_mix_prob:
+                lam = float(torch.distributions.Beta(self.pair_mix_alpha, self.pair_mix_alpha).sample())
+                degrad_patch = lam * degrad_patch + (1 - lam) * prev_degrad
+                clean_patch = lam * clean_patch + (1 - lam) * prev_clean
+
+        self._pair_mix_buffer = (degrad_patch.detach(), clean_patch.detach(), de_id)
         restored = self.net(degrad_patch, de_id=de_id)
 
         if self.rain_loss_weight != 1.0:
@@ -275,16 +304,26 @@ def main():
                         help='Duplicate rain samples N times per epoch (1=no oversampling)')
     parser.add_argument('--rain_loss_weight', type=float, default=1.0,
                         help='Multiply rain sample losses by this factor (1.0=no weighting, 1.25 recommended)')
+    parser.add_argument('--pair_mix_prob', type=float, default=0.0,
+                        help='Probability of same-task PairMix (0=off, 0.2 recommended)')
+    parser.add_argument('--pair_mix_alpha', type=float, default=1.2,
+                        help='Beta distribution alpha for PairMix lambda')
+    parser.add_argument('--hard_patch_prob', type=float, default=0.0,
+                        help='Probability of residual-biased hard patch sampling (0=off, 0.5 recommended)')
+    parser.add_argument('--hard_patch_tau', type=float, default=2.0,
+                        help='Temperature for hard patch sampling softmax')
+    parser.add_argument('--color_aug_prob', type=float, default=0.0,
+                        help='Probability of paired gamma/brightness/contrast augmentation (0=off, 0.2 recommended)')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
     parser.add_argument('--monitor', choices=['val_loss', 'val_psnr'], default='val_loss')
     parser.add_argument('--ema', action='store_true', help='Use EMA weights for validation/checkpointing')
     parser.add_argument('--ema_decay', type=float, default=0.9999)
-    parser.add_argument('--loss_type', choices=['l1', 'charbonnier', 'l1_mse'], default='l1',
+    parser.add_argument('--loss_type', choices=['l1', 'charbonnier', 'l1_mse', 'charbonnier_mse'], default='l1',
                         help='Training loss type')
     parser.add_argument('--mse_weight', type=float, default=0.05,
-                        help='Weight of MSE term when loss_type is l1_mse')
+                        help='Weight of MSE term when loss_type is l1_mse or charbonnier_mse')
     parser.add_argument('--task_conditioning', action='store_true',
                         help='Enable per-task affine conditioning for rain/snow')
     parser.add_argument('--sipl_lite', action='store_true',
@@ -329,7 +368,9 @@ def main():
                           sipl_lite=args.sipl_lite, sipl_start_alpha=args.sipl_start_alpha,
                           sipl_refine_weight=args.sipl_refine_weight,
                           gradient_checkpointing=args.gradient_checkpointing,
-                          rain_loss_weight=args.rain_loss_weight)
+                          rain_loss_weight=args.rain_loss_weight,
+                          pair_mix_prob=args.pair_mix_prob,
+                          pair_mix_alpha=args.pair_mix_alpha)
 
     if args.compile:
         import logging

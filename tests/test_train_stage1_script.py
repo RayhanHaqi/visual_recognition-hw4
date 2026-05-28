@@ -64,7 +64,9 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn('SIPL_REFINE_WEIGHT=${SIPL_REFINE_WEIGHT:-0.5}', text)
         self.assertIn('GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING:-none}', text)
         self.assertIn('COMPILE=${COMPILE:-0}', text)
-        self.assertIn('RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.25}', text)
+        self.assertIn('RAIN_LOSS_WEIGHT=${RAIN_LOSS_WEIGHT:-1.0}', text)
+        self.assertIn('PAIR_MIX_PROB=${PAIR_MIX_PROB:-0.0}', text)
+        self.assertIn('HARD_PATCH_PROB=${HARD_PATCH_PROB:-0.0}', text)
         self.assertIn('--gradient_checkpointing "$GRADIENT_CHECKPOINTING"', text)
 
     def test_stage1_script_parses_metric_without_ckpt_suffix(self):

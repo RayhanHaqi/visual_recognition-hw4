@@ -28,6 +28,10 @@ def main():
     parser.add_argument("--output", required=True, help="Output zip path")
     parser.add_argument("--weights", nargs="+", type=float, default=None,
                         help="Per-zip weights (default: equal)")
+    parser.add_argument("--mode", choices=["mean", "median", "trimmed_mean"], default="mean",
+                        help="Ensemble mode: mean | median | trimmed_mean (5%% trim)")
+    parser.add_argument("--trim_fraction", type=float, default=0.05,
+                        help="Fraction to trim from each tail for trimmed_mean (default: 0.05)")
     args = parser.parse_args()
 
     if args.weights is not None and len(args.weights) != len(args.zips):
@@ -44,7 +48,13 @@ def main():
     ensemble = {}
     for key in keys:
         stacked = np.stack([p[key].astype(np.float64) for p in all_preds], axis=0)
-        weighted = np.average(stacked, axis=0, weights=weights)
+        if args.mode == "mean":
+            weighted = np.average(stacked, axis=0, weights=weights)
+        elif args.mode == "median":
+            weighted = np.median(stacked, axis=0)
+        elif args.mode == "trimmed_mean":
+            from scipy import stats
+            weighted = stats.trim_mean(stacked, args.trim_fraction, axis=0)
         ensemble[key] = np.rint(np.clip(weighted, 0, 255)).astype(np.uint8)
 
     save_pred_npz(ensemble, args.output)
