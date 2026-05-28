@@ -51,15 +51,12 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 
 | Submission | Public PSNR | Notes |
 | --- | ---: | --- |
-| **stage1-p256-tta-run9-l1mse.zip** | **31.77** | **Final selected submission, L1+MSE ($\lambda$=0.05), p256, PSNR-monitored, best epoch 139** |
+| **ensemble-diverse.zip** | **31.84** | **Final selected submission, R9+R8+R11avg5+R11 prediction ensemble** |
+| stage1-p256-tta-run9-l1mse.zip | 31.77 | Run 9 single-model best (L1+MSE $\lambda$=0.05) |
+| ensemble-r9-r8-tta.zip | 31.73 | Run 9 + Run 8 TTA ensemble |
 | stage1-p256-avg5-tta-run9-l1mse.zip | 31.76 | Run 9 top-5 checkpoint averaging TTA |
-| stage1-p256-original-run9-l1mse.zip | 31.31 | Run 9 no TTA |
-| stage1-p256-tta-run12-l1mse.zip | 31.72 | Run 12 L1+MSE ($\lambda$=0.10), p256, best epoch 139 |
-| stage1-p256-avg5-tta-run12-l1mse.zip | 31.72 | Run 12 top-5 checkpoint averaging TTA |
-| stage1-p256-original-run12-l1mse.zip | 31.31 | Run 12 no TTA |
-| stage1-p256-tta-run11-l1mse-ema.zip | 31.72 | Run 11 L1+MSE ($\lambda$=0.05) + EMA |
-| stage1-p256-avg5-tta-run11-l1mse-ema.zip | 31.73 | Run 11 EMA + top-5 averaging |
-| stage1-p256-tta-run10-task.zip | 31.19 | Run 10 task-conditioned TTA |
+| stage1-p256-tta-run14-rainw125.zip | 31.69 | Run 14 rain loss weight 1.25 (did not improve) |
+| stage1-p256-bs3-bf16-mixed-l1_mse0025-tta.zip | 31.39 | Run 13 bf16+bs3+$\lambda$=0.025 (failed recipe)
 | stage1-p256-avg3-tta.zip | 31.73 | p256, PSNR-monitored top-3 checkpoint averaging, best epoch 149 |
 | stage1-p256-tta.zip | 31.73 | p256, PSNR-monitored, best epoch 149 |
 | stage1-p384-avg3-tta.zip | 31.50 | p384, EMA, top-3 checkpoint averaging, best epoch 109 |
@@ -68,4 +65,4 @@ python inference.py checkpoints/promptir-epoch150.ckpt --tta --output submission
 | stage1-p192-original.zip | 30.93 | p192 no TTA |
 | stage1-epoch149.zip | 30.52 | Initial baseline p128 |
 
-Final selected submission: `submission/stage1-p256-tta-run9-l1mse.zip` at **31.77 PSNR**. Run 9 (L1+MSE $\lambda$=0.05) remains the best configuration. Run 12 ($\lambda$=0.10) matched Run 11 at 31.72 but did not surpass the Run 9 baseline. Run 10 (task conditioning, 31.19) was the worst performer.
+Final selected submission: `submission/ensemble-diverse.zip` at **31.84 PSNR** (equal-weight prediction ensemble of Run 9 TTA + Run 8 TTA + Run 11 avg5 TTA + Run 11 TTA). Single-model best remains Run 9 at 31.77. All training-based improvements (loss weighting, EMA, task conditioning, bf16, batch size) failed to surpass this ensemble.

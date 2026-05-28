@@ -159,7 +159,9 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 10 & p256, L1+MSE + task cond. & 139 & original / TTA / avg5 TTA & 30.73 / 31.19 / 31.18 \\
 11 & p256, L1+MSE + EMA & 129 & original / TTA / avg5 TTA & 31.28 / 31.72 / 31.73 \\
 12 & p256, L1+MSE ($\lambda$=0.10) & 139 & original / TTA / avg5 TTA & 31.31 / 31.72 / 31.72 \\
-13 & p256, bf16, bs=3, L1+MSE ($\lambda$=0.025), grad-ckpt & -- & pending submission & -- \\ \bottomrule
+13 & p256, bf16, bs=3, L1+MSE ($\lambda$=0.025) & 139 & TTA & 31.39 \\
+14 & p256, bs=1, L1+MSE ($\lambda$=0.05), rain loss 1.25$\times$ & 144 & original / TTA / avg5 TTA & 31.25 / 31.69 / 31.69 \\
+\textbf{Ens.} & \textbf{R9 + R8 + R11 avg5 + R11 TTA ensemble} & \textbf{---} & \textbf{prediction ensemble (equal weight)} & \textbf{31.84} \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -186,31 +188,16 @@ Run 12 tested a larger MSE weight of $\lambda=0.10$ with the L1+MSE loss, hypoth
 \subsubsection{Effectiveness of TTA}
 8-way geometric TTA consistently provided a substantial boost: $+0.48$ dB on average across all runs. This is significantly larger than typical TTA gains in classification, reflecting the importance of geometric consistency in restoration networks trained with random D4 augmentations. Run 9 TTA (31.77) vs original (31.31) represents a +0.46 dB gain.
 
-\subsubsection{Memory and Speed Optimizations for Larger Batch Sizes (Run 13)}
-Run 13 introduces a comprehensive memory optimization pipeline targeting a physical batch size of 3 at $256 \times 256$ resolution ($\sim$20--22 GB VRAM) to increase training data diversity per optimization step. Four instrumentation changes were implemented, summarized in Table \ref{tab:opt_flags}.
+\subsubsection{Bfloat16 Mixed Precision and Lower $\lambda$ Do Not Help (Run 13)}
+Run 13 tested bfloat16 mixed precision at batch size 3 with a lower MSE weight of $\lambda=0.025$, aiming to increase training data diversity per optimization step while probing the lower end of the L1-MSE balance. Public TTA PSNR dropped to 31.39 --- 0.38 dB below Run 9 and below even the p192 Run 4 (31.35). With bf16, BS=3, and a different $\lambda$ bundled together, the root cause cannot be isolated conclusively, but the magnitude of the drop ($-0.38$ dB) is too large to attribute to $\lambda$ change alone. Possible contributing factors include reduced gradient precision in bfloat16 for the LayerNorm-heavy PromptIR attention, or the changed batch statistics in the deeper latent transformer blocks.
 
-\begin{table}[htbp]
-\centering
-\caption{Memory and speed optimization flags added for Run 13.}
-\label{tab:opt_flags}
-\small
-\begin{tabular}{@{}lll@{}}
-\toprule
-\textbf{Flag} & \textbf{Effect} & \textbf{Memory Impact} \\ \midrule
-\texttt{--precision bf16-mixed} & Automatic mixed precision with bfloat16 & $\sim$2$\times$ reduction vs fp32 \\
-\texttt{--gradient\_checkpointing highres} & Activation checkpointing on 12 full-resolution blocks & $\sim$40\% activation reduction \\
-\texttt{--compile} & \texttt{torch.compile} graph optimization & Negligible, but +10--20\% throughput \\
-\texttt{cudnn.benchmark=True} & Fast kernel autotuning for fixed shapes & None, speed only \\ \bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{Rain Loss Weighting Hurts Both Tasks (Run 14)}
+Run 14 applied per-sample rain loss weighting ($\times 1.25$) on the exact Run 9 recipe (fp32, BS=1, $\lambda=0.05$). Despite the hypothesis that stronger rain optimization would close the 2.2 dB derain--desnow gap, public TTA PSNR dropped to 31.69; original output scored only 31.25. Local validation per-task metrics confirmed that \emph{both} derain and desnow degraded (derain: 29.65$\to$29.61, desnow: 31.89$\to$31.79). Loss weighting shifts the effective optimization objective away from the PSNR-aligned L1+MSE combination that Run 9 found, even without changing the loss function's formula.
 
-\textbf{Bfloat16 mixed precision} is the primary enabler: the 4090 GPU (sm\_89) supports full bfloat16 tensor cores, halving activation memory and increasing arithmetic throughput compared to the previous FP32 configuration. Since PromptIR's L2-normalized attention and GELU activations are numerically stable in bfloat16, precision-related degradation is not expected.
+\subsubsection{Prediction Ensembling Becomes the New Best (31.84)}
+The equal-weight prediction ensemble of Run 9 TTA (31.77) + Run 8 TTA (31.73) + Run 11 avg5 TTA (31.73) + Run 11 TTA (31.72) achieved \textbf{31.84 PSNR} --- a +0.07 dB improvement over the best single model and the highest score of all experiments. This supports the hypothesis that differently-trained PromptIR models capture complementary restoration patterns, and averaging their pixel predictions exploits this diversity more effectively than checkpoint averaging within a single run (which only yielded 31.76).
 
-\textbf{Gradient checkpointing} targets only the 12 transformer blocks operating at full $256 \times 256$ resolution (encoder level 1, decoder level 1, and refinement blocks), where activations dominate VRAM. These blocks are wrapped with PyTorch's \texttt{torch.utils.checkpoint.checkpoint\_sequential} with the recommended \texttt{use\_reentrant=False} mode, recomputing intermediate activations during the backward pass instead of storing them. The remaining 35 blocks at lower spatial resolutions are left unmodified to avoid unnecessary compute overhead.
-
-A critical implementation detail is state dict compatibility: checkpointing wraps \texttt{nn.Sequential} blocks with a \texttt{CheckpointedSequential} wrapper that adds a \texttt{blocks.} prefix to parameter keys. The inference pipeline includes a \texttt{\_strip\_checkpoint\_wrapper} utility that normalizes these keys back to the original PromptIR format before \texttt{load\_state\_dict}, ensuring that inference checkpoints can be loaded with or without gradient checkpointing enabled.
-
-\textbf{Run 13 configuration:} $P=256$, $B=3$, bf16-mixed, L1+MSE ($\lambda=0.025$), PSNR-monitored checkpointing, 150 epochs. The reduced $\lambda=0.025$ tests whether lower MSE weighting (below the Run 9 optimum of 0.05) provides additional benefit. Activation checkpointing is held as a fallback (\texttt{GRADIENT\_CHECKPOINTING=highres}) if BS=3 encounters OOM, while \texttt{torch.compile} is available as an opt-in throughput booster. The CUDA allocator is configured with \texttt{PYTORCH\_ALLOC\_CONF=expandable\_segments:True} to reduce memory fragmentation from the 47-transformer-block architecture.
+Two weighted ensemble variants were generated for further evaluation: a 50\%-Run-9 version and a 3-way variant dropping the weakest source (Run 11 TTA). The ensemble approach is CPU-only and costs no GPU time, making it a highly efficient deadline strategy.
 
 \subsubsection{Validation vs Public Score Correlation}
 Table \ref{tab:val_vs_public} compares best local validation PSNR with CodaBench public scores. Local validation PSNR is computed on the 320-image validation set, while public PSNR is computed on the 100-image hidden test set. The correlation is imperfect but informative.
@@ -227,7 +214,9 @@ Table \ref{tab:val_vs_public} compares best local validation PSNR with CodaBench
 9  (L1+MSE $\lambda$=0.05) & 30.7490 & 31.77 & 1.02 \\
 10 (L1+MSE + task)          & 30.7306 & 31.19 & 0.46 \\
 11 (L1+MSE + EMA)           & 30.7558 & 31.72 & 0.96 \\
-12 (L1+MSE $\lambda$=0.10)   & 30.7149 & 31.72 & 1.01 \\ \bottomrule
+12 (L1+MSE $\lambda$=0.10)   & 30.7149 & 31.72 & 1.01 \\
+13 (bf16, bs=3, $\lambda$=0.025) & 30.3505 & 31.39 & 1.04 \\
+14 (rain loss 1.25$\times$)    & 30.6834 & 31.69 & 1.01 \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -259,6 +248,9 @@ Several strategies were evaluated and found to be harmful or ineffective:
     \item \textbf{EMA (Run 11):} Two independent tests (Runs 7 and 11) showed EMA degrades or neutralizes scores, indicating PromptIR training does not benefit from weight averaging.
     \item \textbf{SIPL-Lite Inference:} A second-pass refinement during inference was tested on Run 11 and scored 31.72, below the single-pass TTA of 31.77.
     \item \textbf{Top-N Checkpoint Averaging:} Both avg3 and avg5 tied or slightly underperformed the best single checkpoint, suggesting the PromptIR loss landscape does not contain complementary checkpoints near the optimum.
+    \item \textbf{Bfloat16 Mixed Precision (Run 13):} Combining bf16 with batch size 3 and reduced MSE weight caused a 0.38 dB drop, indicating precision sensitivity in PromptIR's attention mechanism.
+    \item \textbf{Rain Loss Weighting (Run 14):} Per-sample derain loss weighting degraded both derain and desnow, confirming that loss rebalancing distorts the PSNR-aligned L1+MSE optimization.
+    \item \textbf{Derain Oversampling:} Not evaluated independently; lower priority after prediction ensembling became the clear winning strategy.
 \end{itemize}
 
 % ==========================================
@@ -266,7 +258,7 @@ Several strategies were evaluated and found to be harmful or ineffective:
 % ==========================================
 \section{Conclusion}
 
-This project successfully trained a PromptIR model from scratch for all-in-one rain and snow image restoration. Starting from a baseline of 30.52 PSNR, systematic experimentation yielded a final best score of \textbf{31.77 PSNR} (L1+MSE loss, patch 256, TTA), representing a 1.25 dB improvement.
+This project successfully trained a PromptIR model from scratch for all-in-one rain and snow image restoration. Starting from a baseline of 30.52 PSNR, systematic experimentation yielded a final best score of \textbf{31.84 PSNR} via prediction ensembling of four strong single-model checkpoints, representing a 1.32 dB improvement. The single-model best is 31.77 (Run 9).
 
 The key contributions are:
 \begin{enumerate}
@@ -275,23 +267,22 @@ The key contributions are:
     \item \textbf{Geometric TTA:} 8-way flip/transpose test-time augmentation consistently provided +0.46 dB over single-original inference, accounting for the largest individual gain in the submission pipeline.
     \item \textbf{Patch Size Tuning:} $P=256$ full-image training outperformed $P=192$ and $P=384$ configurations by up to 0.38 dB.
     \item \textbf{Per-Task Diagnostics:} Separate derain/snow validation metrics revealed derain as the performance bottleneck (2.2 dB below desnow), guiding future research direction.
-    \item \textbf{Identification of Failed Strategies:} Task conditioning, EMA, SIPL-lite inference, and Stage 2 merged retraining were all systematically tested and found to degrade or provide no improvement over the baseline.
+    \item \textbf{Identification of Failed Strategies:} Task conditioning, EMA, SIPL-lite inference, Stage 2 merged retraining, bfloat16 mixed precision, and rain loss weighting were all systematically tested and found to degrade or provide no improvement over the baseline.
+    \item \textbf{Prediction Ensembling:} Equal-weight pixel averaging of 4 complementary checkpoints achieved 31.84, outperforming all single-model approaches by +0.07 dB and establishing the final submission.
 \end{enumerate}
 
 The fact that task conditioning and EMA both failed despite strong theoretical motivation highlights an important lesson: on small paired datasets trained from scratch, simple recipe improvements (loss function, checkpoint selection, TTA) often outperform architectural complications. The PromptIR transformer backbone is already a strong restoration model; squeezing additional gains requires careful empirical tuning rather than module additions that risk overfitting.
 
 \subsubsection{Recommendations for Further Improvement}
-The Run 13 experiment (ongoing) represents the most promising remaining direction: bfloat16 mixed precision enables batch size 3 without architectural changes, and the reduced MSE weight $\lambda=0.025$ probes whether $\lambda=0.05$ was overshooting the L1-MSE balance. Additional unexplored directions include:
+Prediction ensembling at 31.84 is the strongest result, and further improvements are more likely to come from additional strong single-model checkpoints with diverse training recipes than from parameter-level ensembling or single-model experimentation. Promising unexplored directions include:
 \begin{itemize}
-    \item Rain-specific data augmentation (rain-streak augmentation, intensity variation, heavier dropout for rain images).
-    \item Longer training (200+ epochs) with cosine restarts, now feasible with the faster bf16 training pipeline.
-    \item Derain loss weighting: the 2.2 dB gap between derain and desnow (Table~\ref{tab:pertask}) suggests that up-weighting rain image losses could close the bottleneck without architectural modifications.
-    \item \texttt{torch.compile} for throughput: if the Run 13 pipeline is stable, enabling \texttt{--compile} could reduce training time by 10--20\%, enabling more experiments within the deadline constraint.
+    \item \textbf{Weighted Prediction Ensembles:} The equal-weight diverse ensemble already outperforms all singles. Optimizing ensemble weights (e.g., Run 9 at 60\%) or dropping the weakest contributor (Run 11 TTA at 31.72) may yield additional 0.02--0.05 dB.
+    \item \textbf{Derain Oversampling:} While rain loss weighting failed because it changed the optimization landscape, pure data oversampling (duplicating rain images without changing the loss) was not independently evaluated and remains a plausible direction.
+    \item \textbf{Charbonnier Loss:} The robust pixel-loss variant commonly used in BasicSR-style restoration is untested and may improve derain where L1 struggles with outlier pixels.
+    \item \textbf{Longer Training:} 200+ epochs with cosine restarts, now feasible given the clear ensemble benchmark, may extract marginal gains.
 \end{itemize}
 
-These directions have not been tested; all are contingent on Run 13 results and remaining compute budget.
-
-The submission with the best public PSNR is \texttt{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77. An additional experiment (Run 13) is in progress as of this writing, testing bfloat16 mixed-precision training at batch size 3 with L1+MSE ($\lambda=0.025$); results will be appended to the competition leaderboard before the deadline.
+The submission with the best public PSNR is \texttt{submission/ensemble-diverse.zip} at 31.84 (prediction ensemble of Run 9 TTA + Run 8 TTA + Run 11 avg5 TTA + Run 11 TTA). The single-model best is \texttt{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77.
 
 % ==========================================
 % REFERENCES
