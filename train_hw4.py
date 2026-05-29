@@ -125,8 +125,8 @@ def apply_gradient_checkpointing(model, mode):
     target_attrs = {
         "highres": ["encoder_level1", "decoder_level1", "refinement"],
         "full": ["encoder_level1", "encoder_level2", "encoder_level3",
-                  "latent", "decoder_level1", "decoder_level2", "decoder_level3",
-                  "refinement"],
+                 "latent", "decoder_level1", "decoder_level2", "decoder_level3",
+                 "refinement"],
     }[mode]
     for attr in target_attrs:
         if hasattr(model, attr):
@@ -179,7 +179,7 @@ class PromptIRModel(pl.LightningModule):
             bs = clean_patch.size(0)
             loss_per_sample = torch.zeros(bs, device=clean_patch.device)
             for i in range(bs):
-                loss_per_sample[i] = self.loss_fn(restored[i:i+1], clean_patch[i:i+1])
+                loss_per_sample[i] = self.loss_fn(restored[i:i + 1], clean_patch[i:i + 1])
             is_rain = (torch.tensor(de_id, device=clean_patch.device) == 1).float()
             weights = 1.0 + (self.rain_loss_weight - 1.0) * is_rain
             loss = (loss_per_sample * weights).mean()

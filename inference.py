@@ -161,8 +161,15 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, ta
 
             if use_sipl_lite:
                 restored_clamped = torch.clamp(restored, 0, 1)
-                de_id_for_second = rain_id if (has_cond and task_mode == "derain") else (snow_id if (has_cond and task_mode == "desnow") else None)
-                restored = restore_image(model, restored_clamped, use_tta=use_tta, de_id=de_id_for_second)
+                if has_cond and task_mode == "derain":
+                    de_id_for_second = rain_id
+                elif has_cond and task_mode == "desnow":
+                    de_id_for_second = snow_id
+                else:
+                    de_id_for_second = None
+                restored = restore_image(
+                    model, restored_clamped, use_tta=use_tta,
+                    de_id=de_id_for_second)
 
             restored = restored[:, :, :original_h, :original_w]
 

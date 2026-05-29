@@ -97,7 +97,8 @@ class HW4TrainDataset(Dataset):
         random.shuffle(self.de_type)
         print(f"Total training samples: {len(self.sample_ids)}")
         if getattr(self.args, 'derain_oversample', 1) > 1:
-            print(f"  Derain oversampling: {oversample}x ({len(self.rain_ids)} rain -> {len(self.rain_ids) * oversample} samples)")
+            print(f"  Derain oversampling: {oversample}x "
+                  f"({len(self.rain_ids)} rain -> {len(self.rain_ids) * oversample} samples)")
 
     def _crop_patch(self, img_1, img_2):
         H, W = img_1.shape[:2]
