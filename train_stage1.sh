@@ -8,6 +8,9 @@ BATCH_SIZE=${BATCH_SIZE:-1}
 EPOCHS=${EPOCHS:-150}
 GPU_IDS=${GPU_IDS:-0}
 PRECISION=${PRECISION:-32}
+MODEL_DIM=${MODEL_DIM:-48}
+NUM_BLOCKS=${NUM_BLOCKS:-4,6,6,8}
+NUM_REFINEMENT_BLOCKS=${NUM_REFINEMENT_BLOCKS:-4}
 SAVE_TOP_K=${SAVE_TOP_K:-5}
 EMA=${EMA:-0}
 EMA_DECAY=${EMA_DECAY:-0.9999}
@@ -35,6 +38,9 @@ echo "Patch size: $PATCH_SIZE"
 echo "Batch size: $BATCH_SIZE"
 echo "Epochs: $EPOCHS"
 echo "Save top-k: $SAVE_TOP_K"
+echo "Model dim: $MODEL_DIM"
+echo "Num blocks: $NUM_BLOCKS"
+echo "Num refinement blocks: $NUM_REFINEMENT_BLOCKS"
 echo "EMA: $EMA"
 echo "Monitor: $MONITOR"
 echo "Loss type: $LOSS_TYPE"
@@ -65,6 +71,9 @@ TRAIN_ARGS=(
     --precision "$PRECISION"
     --batch_size "$BATCH_SIZE"
     --patch_size "$PATCH_SIZE"
+    --model_dim "$MODEL_DIM"
+    --num_blocks "$NUM_BLOCKS"
+    --num_refinement_blocks "$NUM_REFINEMENT_BLOCKS"
     --ckpt_dir "$CKPT_DIR"
     --save_top_k "$SAVE_TOP_K"
     --monitor "$MONITOR"
@@ -93,6 +102,12 @@ if [ "$COMPILE" = "1" ]; then
 fi
 
 python train_hw4.py "${TRAIN_ARGS[@]}"
+
+INFER_ARGS=(
+    --model_dim "$MODEL_DIM"
+    --num_blocks "$NUM_BLOCKS"
+    --num_refinement_blocks "$NUM_REFINEMENT_BLOCKS"
+)
 
 BEST_CKPT=$(python - "$CKPT_DIR" "$MONITOR" <<'PY'
 import re
@@ -124,11 +139,11 @@ echo "Best epoch: $BEST_EPOCH"
 
 echo ""
 echo "=== Original inference ==="
-python inference.py "$BEST_CKPT" --output "submission/${RUN_NAME}-original.zip"
+python inference.py "$BEST_CKPT" "${INFER_ARGS[@]}" --output "submission/${RUN_NAME}-original.zip"
 
 echo ""
 echo "=== TTA inference ==="
-python inference.py "$BEST_CKPT" --tta --output "submission/${RUN_NAME}-tta.zip"
+python inference.py "$BEST_CKPT" "${INFER_ARGS[@]}" --tta --output "submission/${RUN_NAME}-tta.zip"
 
 echo ""
 echo "=== Averaging top checkpoints ==="
@@ -155,7 +170,7 @@ python average_checkpoints.py "${AVG_CKPTS[@]}" --output "$AVG_CKPT"
 
 echo ""
 echo "=== Averaged TTA inference ==="
-python inference.py "$AVG_CKPT" --tta --output "submission/${RUN_NAME}-avg${SAVE_TOP_K}-tta.zip"
+python inference.py "$AVG_CKPT" "${INFER_ARGS[@]}" --tta --output "submission/${RUN_NAME}-avg${SAVE_TOP_K}-tta.zip"
 
 echo ""
 echo "=== Done ==="

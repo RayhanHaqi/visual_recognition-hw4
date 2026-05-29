@@ -74,6 +74,13 @@ def build_loss_fn(loss_type, mse_weight):
     raise ValueError(f"Unsupported loss type: {loss_type}")
 
 
+def parse_num_blocks(value):
+    blocks = [int(part.strip()) for part in value.split(",") if part.strip()]
+    if len(blocks) != 4:
+        raise ValueError("num_blocks must contain four comma-separated integers")
+    return blocks
+
+
 def sipl_blend_alpha(epoch, max_epochs, start_alpha):
     if max_epochs <= 0:
         return 0.0
@@ -136,12 +143,21 @@ def apply_gradient_checkpointing(model, mode):
 
 
 class PromptIRModel(pl.LightningModule):
-    def __init__(self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
-                 task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5,
-                 gradient_checkpointing="none", rain_loss_weight=1.0,
-                 pair_mix_prob=0.0, pair_mix_alpha=1.2):
+    def __init__(
+            self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
+            task_conditioning=False, sipl_lite=False, sipl_start_alpha=0.5, sipl_refine_weight=0.5,
+            gradient_checkpointing="none", rain_loss_weight=1.0,
+            pair_mix_prob=0.0, pair_mix_alpha=1.2,
+            model_dim=48, num_blocks=None, num_refinement_blocks=4):
         super().__init__()
-        backbone = PromptIR(decoder=True)
+        if num_blocks is None:
+            num_blocks = [4, 6, 6, 8]
+        backbone = PromptIR(
+            decoder=True,
+            dim=model_dim,
+            num_blocks=num_blocks,
+            num_refinement_blocks=num_refinement_blocks,
+        )
         apply_gradient_checkpointing(backbone, gradient_checkpointing)
         self.net = TaskConditionedRestorer(backbone, enabled=task_conditioning)
         self.loss_fn = build_loss_fn(loss_type, mse_weight)
@@ -299,6 +315,12 @@ def main():
     parser.add_argument('--precision', type=str, default='32', help='32, 16-mixed, bf16-mixed')
     parser.add_argument('--gradient_checkpointing', choices=['none', 'highres', 'full'], default='none',
                         help='Activation checkpointing: none | highres (full-res blocks) | full (all blocks)')
+    parser.add_argument('--model_dim', type=int, default=48,
+                        help='PromptIR base channel dimension')
+    parser.add_argument('--num_blocks', type=str, default='4,6,6,8',
+                        help='PromptIR block depths as four comma-separated integers')
+    parser.add_argument('--num_refinement_blocks', type=int, default=4,
+                        help='PromptIR refinement block count')
     parser.add_argument('--compile', action='store_true', help='Use torch.compile for training speed')
     parser.add_argument('--derain_oversample', type=int, default=1,
                         help='Duplicate rain samples N times per epoch (1=no oversampling)')
@@ -370,7 +392,10 @@ def main():
                           gradient_checkpointing=args.gradient_checkpointing,
                           rain_loss_weight=args.rain_loss_weight,
                           pair_mix_prob=args.pair_mix_prob,
-                          pair_mix_alpha=args.pair_mix_alpha)
+                          pair_mix_alpha=args.pair_mix_alpha,
+                          model_dim=args.model_dim,
+                          num_blocks=parse_num_blocks(args.num_blocks),
+                          num_refinement_blocks=args.num_refinement_blocks)
 
     if args.compile:
         import logging

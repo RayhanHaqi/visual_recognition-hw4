@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from hw4_dataset import HW4TestDataset
 from net.model import PromptIR
-from train_hw4 import TaskConditionedRestorer
+from train_hw4 import TaskConditionedRestorer, parse_num_blocks
 
 TTA_MODES = (
     "identity",
@@ -99,13 +99,16 @@ def _strip_checkpoint_wrapper(state_dict):
 
 
 def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, task_mode="none",
-              use_sipl_lite=False):
+              use_sipl_lite=False, model_dim=48, num_blocks="4,6,6,8", num_refinement_blocks=4):
     print(f"Checkpoint: {ckpt_path}")
     print(f"Test: {test_dir}")
     print(f"Output: {output_path}")
     print(f"TTA: {use_tta}")
     print(f"Task mode: {task_mode}")
     print(f"SIPL-lite: {use_sipl_lite}")
+    print(f"Model dim: {model_dim}")
+    print(f"Num blocks: {num_blocks}")
+    print(f"Num refinement blocks: {num_refinement_blocks}")
 
     ckpt = torch.load(ckpt_path, map_location=device)
 
@@ -119,11 +122,18 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, ta
 
     has_cond = _has_conditioning_keys(state_dict)
     state_dict = _strip_checkpoint_wrapper(state_dict)
+    if isinstance(num_blocks, str):
+        num_blocks = parse_num_blocks(num_blocks)
+    model_kwargs = {
+        "dim": model_dim,
+        "num_blocks": num_blocks,
+        "num_refinement_blocks": num_refinement_blocks,
+    }
     if has_cond:
-        base_model = PromptIR(decoder=True)
+        base_model = PromptIR(decoder=True, **model_kwargs)
         model = TaskConditionedRestorer(base_model, enabled=True)
     else:
-        model = PromptIR(decoder=True)
+        model = PromptIR(decoder=True, **model_kwargs)
 
     model.load_state_dict(state_dict, strict=True)
     model.to(device)
@@ -201,6 +211,9 @@ if __name__ == "__main__":
                         help="Task conditioning mode for conditioned checkpoints")
     parser.add_argument("--sipl_lite", action="store_true",
                         help="Run a second refinement pass through PromptIR")
+    parser.add_argument("--model_dim", type=int, default=48)
+    parser.add_argument("--num_blocks", type=str, default="4,6,6,8")
+    parser.add_argument("--num_refinement_blocks", type=int, default=4)
     args = parser.parse_args()
 
     if args.output is None:
@@ -208,4 +221,6 @@ if __name__ == "__main__":
         args.output = f"submission/{ckpt_name}.zip"
 
     inference(args.checkpoint, args.test_dir, args.output, args.device,
-              use_tta=args.tta, task_mode=args.task_mode, use_sipl_lite=args.sipl_lite)
+              use_tta=args.tta, task_mode=args.task_mode, use_sipl_lite=args.sipl_lite,
+              model_dim=args.model_dim, num_blocks=args.num_blocks,
+              num_refinement_blocks=args.num_refinement_blocks)
