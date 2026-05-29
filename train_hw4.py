@@ -25,7 +25,7 @@ from lightning.pytorch.callbacks import EMAWeightAveraging, ModelCheckpoint, TQD
 
 from hw4_dataset import HW4TrainDataset, HW4ValDataset
 from utils.schedulers import LinearWarmupCosineAnnealingLR
-from net.model import PromptIR
+from net.model import PromptIR, PromptGenBlock, TransformerBlock
 
 
 class CharbonnierLoss(nn.Module):
@@ -142,6 +142,49 @@ def apply_gradient_checkpointing(model, mode):
                 setattr(model, attr, CheckpointedSequential(seq))
 
 
+def _patch_promptir_decoder_dims(model, dim):
+    level2 = int(dim * 2 ** 1)
+    level3 = int(dim * 2 ** 2)
+    level4 = int(dim * 2 ** 3)
+    prompt1_dim = 64
+    prompt2_dim = 128
+    prompt3_dim = 320
+
+    model.prompt1 = PromptGenBlock(prompt_dim=prompt1_dim, prompt_len=5, prompt_size=64, lin_dim=level2)
+    model.prompt2 = PromptGenBlock(prompt_dim=prompt2_dim, prompt_len=5, prompt_size=32, lin_dim=level3)
+    model.prompt3 = PromptGenBlock(prompt_dim=prompt3_dim, prompt_len=5, prompt_size=16, lin_dim=level4)
+
+    model.reduce_chan_level3 = nn.Conv2d(level2 + level3, level3, kernel_size=1, bias=False)
+    model.noise_level3 = TransformerBlock(
+        dim=level4 + prompt3_dim, num_heads=4, ffn_expansion_factor=2.66,
+        bias=False, LayerNorm_type='WithBias')
+    model.reduce_noise_level3 = nn.Conv2d(level4 + prompt3_dim, level3, kernel_size=1, bias=False)
+
+    model.noise_level2 = TransformerBlock(
+        dim=level3 + prompt2_dim, num_heads=4, ffn_expansion_factor=2.66,
+        bias=False, LayerNorm_type='WithBias')
+    model.reduce_noise_level2 = nn.Conv2d(level3 + prompt2_dim, level3, kernel_size=1, bias=False)
+
+    model.noise_level1 = TransformerBlock(
+        dim=level2 + prompt1_dim, num_heads=4, ffn_expansion_factor=2.66,
+        bias=False, LayerNorm_type='WithBias')
+    model.reduce_noise_level1 = nn.Conv2d(level2 + prompt1_dim, level2, kernel_size=1, bias=False)
+
+
+def build_promptir(decoder=True, model_dim=48, num_blocks=None, num_refinement_blocks=4):
+    if num_blocks is None:
+        num_blocks = [4, 6, 6, 8]
+    model = PromptIR(
+        decoder=decoder,
+        dim=model_dim,
+        num_blocks=num_blocks,
+        num_refinement_blocks=num_refinement_blocks,
+    )
+    if decoder and model_dim != 48:
+        _patch_promptir_decoder_dims(model, model_dim)
+    return model
+
+
 class PromptIRModel(pl.LightningModule):
     def __init__(
             self, lr=2e-4, warmup_epochs=15, max_epochs=150, loss_type="l1", mse_weight=0.05,
@@ -150,14 +193,11 @@ class PromptIRModel(pl.LightningModule):
             pair_mix_prob=0.0, pair_mix_alpha=1.2,
             model_dim=48, num_blocks=None, num_refinement_blocks=4):
         super().__init__()
-        if num_blocks is None:
-            num_blocks = [4, 6, 6, 8]
-        backbone = PromptIR(
+        backbone = build_promptir(
             decoder=True,
-            dim=model_dim,
+            model_dim=model_dim,
             num_blocks=num_blocks,
-            num_refinement_blocks=num_refinement_blocks,
-        )
+            num_refinement_blocks=num_refinement_blocks)
         apply_gradient_checkpointing(backbone, gradient_checkpointing)
         self.net = TaskConditionedRestorer(backbone, enabled=task_conditioning)
         self.loss_fn = build_loss_fn(loss_type, mse_weight)

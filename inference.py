@@ -12,8 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "PromptIR"))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from hw4_dataset import HW4TestDataset
-from net.model import PromptIR
-from train_hw4 import TaskConditionedRestorer, parse_num_blocks
+from train_hw4 import TaskConditionedRestorer, build_promptir, parse_num_blocks
 
 TTA_MODES = (
     "identity",
@@ -130,10 +129,14 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, ta
         "num_refinement_blocks": num_refinement_blocks,
     }
     if has_cond:
-        base_model = PromptIR(decoder=True, **model_kwargs)
+        base_model = build_promptir(decoder=True, model_dim=model_kwargs["dim"],
+                                    num_blocks=model_kwargs["num_blocks"],
+                                    num_refinement_blocks=model_kwargs["num_refinement_blocks"])
         model = TaskConditionedRestorer(base_model, enabled=True)
     else:
-        model = PromptIR(decoder=True, **model_kwargs)
+        model = build_promptir(decoder=True, model_dim=model_kwargs["dim"],
+                               num_blocks=model_kwargs["num_blocks"],
+                               num_refinement_blocks=model_kwargs["num_refinement_blocks"])
 
     model.load_state_dict(state_dict, strict=True)
     model.to(device)

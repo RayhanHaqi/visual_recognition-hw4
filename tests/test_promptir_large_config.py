@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import torch
+
 import train_hw4
 
 
@@ -44,6 +46,19 @@ class PromptIRLargeConfigTest(unittest.TestCase):
         self.assertIn('--model_dim "$MODEL_DIM"', text)
         self.assertIn('--num_blocks "$NUM_BLOCKS"', text)
         self.assertIn('--num_refinement_blocks "$NUM_REFINEMENT_BLOCKS"', text)
+
+    def test_promptir_large_forward_preserves_shape(self):
+        model = train_hw4.PromptIRModel(
+            model_dim=64,
+            num_blocks=[1, 1, 1, 1],
+            num_refinement_blocks=1,
+        )
+        x = torch.zeros(1, 3, 16, 16)
+
+        with torch.no_grad():
+            y = model(x)
+
+        self.assertEqual(y.shape, x.shape)
 
 
 if __name__ == "__main__":
