@@ -10,12 +10,14 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn("PATCH_SIZE=${PATCH_SIZE:-256}", script)
         self.assertIn("BATCH_SIZE=${BATCH_SIZE:-1}", script)
         self.assertIn("SAVE_TOP_K=${SAVE_TOP_K:-5}", script)
+        self.assertIn("CKPT_EVERY_N_EPOCHS=${CKPT_EVERY_N_EPOCHS:-5}", script)
         self.assertIn("EMA=${EMA:-0}", script)
         self.assertIn("EMA_DECAY=${EMA_DECAY:-0.9999}", script)
         self.assertIn("MONITOR=${MONITOR:-val_psnr}", script)
         self.assertEqual(script.count("python train_hw4.py"), 1)
         self.assertIn("--patch_size \"$PATCH_SIZE\"", script)
         self.assertIn("--save_top_k \"$SAVE_TOP_K\"", script)
+        self.assertIn("--every_n_epochs \"$CKPT_EVERY_N_EPOCHS\"", script)
         self.assertIn("--monitor \"$MONITOR\"", script)
         self.assertIn("--gradient_checkpointing \"$GRADIENT_CHECKPOINTING\"", script)
         self.assertIn("--compile", script)
@@ -34,6 +36,7 @@ class TrainStage1ScriptTest(unittest.TestCase):
         script = Path("train_hw4.py").read_text()
 
         self.assertIn("--save_top_k", script)
+        self.assertIn("--every_n_epochs", script)
         self.assertIn("--monitor", script)
         self.assertIn("--ema", script)
         self.assertIn("--ema_decay", script)
@@ -42,6 +45,7 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn('{val_psnr:.6f}', script)
         self.assertIn("EMAWeightAveraging", script)
         self.assertIn("save_top_k=args.save_top_k", script)
+        self.assertIn("every_n_epochs=args.every_n_epochs", script)
         self.assertNotIn("args.save_top_k = -1", script)
         self.assertIn("--loss_type", script)
         self.assertIn("--mse_weight", script)
@@ -53,6 +57,9 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn("CheckpointedSequential", script)
         self.assertIn("checkpoint_sequential", script)
         self.assertIn("torch.backends.cudnn.benchmark = True", script)
+        self.assertIn('--force_aug_no_identity', script)
+        self.assertIn('--aux_denoise', script)
+        self.assertIn('--aux_denoise_sigmas', script)
 
     def test_stage1_script_exposes_promptir_only_experiment_flags(self):
         text = Path("train_stage1.sh").read_text()
@@ -68,6 +75,16 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn('PAIR_MIX_PROB=${PAIR_MIX_PROB:-0.0}', text)
         self.assertIn('HARD_PATCH_PROB=${HARD_PATCH_PROB:-0.0}', text)
         self.assertIn('--gradient_checkpointing "$GRADIENT_CHECKPOINTING"', text)
+
+    def test_stage1_script_exposes_b1_official_recipe_flags(self):
+        text = Path("train_stage1.sh").read_text()
+
+        self.assertIn('FORCE_AUG_NO_IDENTITY=${FORCE_AUG_NO_IDENTITY:-0}', text)
+        self.assertIn('AUX_DENOISE=${AUX_DENOISE:-0}', text)
+        self.assertIn('AUX_DENOISE_SIGMAS=${AUX_DENOISE_SIGMAS:-15,25,50}', text)
+        self.assertIn('--force_aug_no_identity', text)
+        self.assertIn('--aux_denoise "$AUX_DENOISE"', text)
+        self.assertIn('--aux_denoise_sigmas "$AUX_DENOISE_SIGMAS"', text)
 
     def test_stage1_script_parses_metric_without_ckpt_suffix(self):
         script = Path("train_stage1.sh").read_text()

@@ -12,8 +12,9 @@ def crop_img(img, base=16):
     return img[:h - h % base, :w - w % base]
 
 
-def random_augmentation(*imgs):
-    flag_aug = random.randint(0, 7)
+def random_augmentation(*imgs, allow_identity=True):
+    low = 0 if allow_identity else 1
+    flag_aug = random.randint(low, 7)
     out = []
     for img in imgs:
         aug = img.copy()
@@ -24,6 +25,10 @@ def random_augmentation(*imgs):
             aug = np.rot90(aug, rot).copy()
         out.append(aug)
     return out
+
+
+def parse_sigmas(value):
+    return [int(part.strip()) for part in str(value).split(',') if part.strip()]
 
 
 def paired_color_augmentation(*imgs, prob=0.2):
@@ -94,6 +99,22 @@ class HW4TrainDataset(Dataset):
             oversample = getattr(self.args, 'derain_oversample', 1)
             for _ in range(oversample):
                 self.sample_ids += self.rain_ids
+        if getattr(self.args, 'aux_denoise', 0) > 0:
+            sigmas = parse_sigmas(getattr(self.args, 'aux_denoise_sigmas', '15,25,50'))
+            clean_sources = []
+            if 'desnow' in self.de_type:
+                clean_sources += self.snow_ids
+            if 'derain' in self.de_type:
+                clean_sources += self.rain_ids
+            for _ in range(getattr(self.args, 'aux_denoise', 0)):
+                for sample in clean_sources:
+                    for sigma in sigmas:
+                        self.sample_ids.append({
+                            'clean_path': sample['clean_path'],
+                            'degraded_path': sample['clean_path'],
+                            'de_type': 2,
+                            'sigma': sigma,
+                        })
         random.shuffle(self.de_type)
         print(f"Total training samples: {len(self.sample_ids)}")
         if getattr(self.args, 'derain_oversample', 1) > 1:
@@ -141,9 +162,19 @@ class HW4TrainDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.sample_ids[idx]
         de_id = sample["de_type"]
-        degrad_img = crop_img(np.array(Image.open(sample["degraded_path"]).convert('RGB')), base=16)
-        clean_img = crop_img(np.array(Image.open(sample["clean_path"]).convert('RGB')), base=16)
-        degrad_patch, clean_patch = random_augmentation(*self._crop_patch(degrad_img, clean_img))
+        allow_identity = not getattr(self.args, 'force_aug_no_identity', False)
+        if de_id == 2:
+            clean_img = crop_img(np.array(Image.open(sample['clean_path']).convert('RGB')), base=16)
+            degrad_patch, clean_patch = self._crop_patch(clean_img, clean_img)
+            degrad_patch, clean_patch = random_augmentation(
+                degrad_patch, clean_patch, allow_identity=allow_identity)
+            noise = np.random.randn(*clean_patch.shape) * sample['sigma']
+            degrad_patch = np.clip(clean_patch.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        else:
+            degrad_img = crop_img(np.array(Image.open(sample["degraded_path"]).convert('RGB')), base=16)
+            clean_img = crop_img(np.array(Image.open(sample["clean_path"]).convert('RGB')), base=16)
+            degrad_patch, clean_patch = random_augmentation(
+                *self._crop_patch(degrad_img, clean_img), allow_identity=allow_identity)
         color_prob = getattr(self.args, 'color_aug_prob', 0.0)
         degrad_patch, clean_patch = paired_color_augmentation(degrad_patch, clean_patch, prob=color_prob)
         clean_patch = self.toTensor(clean_patch)

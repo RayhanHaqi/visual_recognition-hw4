@@ -376,9 +376,16 @@ def main():
                         help='Temperature for hard patch sampling softmax')
     parser.add_argument('--color_aug_prob', type=float, default=0.0,
                         help='Probability of paired gamma/brightness/contrast augmentation (0=off, 0.2 recommended)')
+    parser.add_argument('--force_aug_no_identity', action='store_true',
+                        help='Official PromptIR-style geometric augmentation without identity')
+    parser.add_argument('--aux_denoise', type=int, default=0,
+                        help='Repeat count for synthetic denoise samples from provided clean images')
+    parser.add_argument('--aux_denoise_sigmas', type=str, default='15,25,50',
+                        help='Comma-separated Gaussian denoise sigmas for aux_denoise')
     parser.add_argument('--no_val', action='store_true', help='Skip validation (faster training)')
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
+    parser.add_argument('--every_n_epochs', type=int, default=5, help='Checkpoint interval in epochs')
     parser.add_argument('--monitor', choices=['val_loss', 'val_psnr'], default='val_loss')
     parser.add_argument('--ema', action='store_true', help='Use EMA weights for validation/checkpointing')
     parser.add_argument('--ema_decay', type=float, default=0.9999)
@@ -446,7 +453,7 @@ def main():
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
-        every_n_epochs=5,
+        every_n_epochs=args.every_n_epochs,
         save_top_k=args.save_top_k,
         monitor=None if args.no_val else args.monitor,
         mode="max" if args.monitor == "val_psnr" else "min",

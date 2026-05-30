@@ -12,6 +12,7 @@ MODEL_DIM=${MODEL_DIM:-48}
 NUM_BLOCKS=${NUM_BLOCKS:-4,6,6,8}
 NUM_REFINEMENT_BLOCKS=${NUM_REFINEMENT_BLOCKS:-4}
 SAVE_TOP_K=${SAVE_TOP_K:-5}
+CKPT_EVERY_N_EPOCHS=${CKPT_EVERY_N_EPOCHS:-5}
 EMA=${EMA:-0}
 EMA_DECAY=${EMA_DECAY:-0.9999}
 MONITOR=${MONITOR:-val_psnr}
@@ -30,6 +31,9 @@ PAIR_MIX_ALPHA=${PAIR_MIX_ALPHA:-1.2}
 HARD_PATCH_PROB=${HARD_PATCH_PROB:-0.0}
 HARD_PATCH_TAU=${HARD_PATCH_TAU:-2.0}
 COLOR_AUG_PROB=${COLOR_AUG_PROB:-0.0}
+FORCE_AUG_NO_IDENTITY=${FORCE_AUG_NO_IDENTITY:-0}
+AUX_DENOISE=${AUX_DENOISE:-0}
+AUX_DENOISE_SIGMAS=${AUX_DENOISE_SIGMAS:-15,25,50}
 RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}}
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
@@ -38,6 +42,7 @@ echo "Patch size: $PATCH_SIZE"
 echo "Batch size: $BATCH_SIZE"
 echo "Epochs: $EPOCHS"
 echo "Save top-k: $SAVE_TOP_K"
+echo "Checkpoint every N epochs: $CKPT_EVERY_N_EPOCHS"
 echo "Model dim: $MODEL_DIM"
 echo "Num blocks: $NUM_BLOCKS"
 echo "Num refinement blocks: $NUM_REFINEMENT_BLOCKS"
@@ -56,6 +61,9 @@ echo "PairMix alpha: ${PAIR_MIX_ALPHA}"
 echo "Hard patch prob: ${HARD_PATCH_PROB}"
 echo "Hard patch tau: ${HARD_PATCH_TAU}"
 echo "Color aug prob: ${COLOR_AUG_PROB}"
+echo "Force aug no identity: ${FORCE_AUG_NO_IDENTITY}"
+echo "Aux denoise: ${AUX_DENOISE}"
+echo "Aux denoise sigmas: ${AUX_DENOISE_SIGMAS}"
 echo "Run name: $RUN_NAME"
 
 mkdir -p "$CKPT_DIR"
@@ -76,6 +84,7 @@ TRAIN_ARGS=(
     --num_refinement_blocks "$NUM_REFINEMENT_BLOCKS"
     --ckpt_dir "$CKPT_DIR"
     --save_top_k "$SAVE_TOP_K"
+    --every_n_epochs "$CKPT_EVERY_N_EPOCHS"
     --monitor "$MONITOR"
     --loss_type "$LOSS_TYPE"
     --mse_weight "$MSE_WEIGHT"
@@ -87,6 +96,8 @@ TRAIN_ARGS=(
     --hard_patch_prob "$HARD_PATCH_PROB"
     --hard_patch_tau "$HARD_PATCH_TAU"
     --color_aug_prob "$COLOR_AUG_PROB"
+    --aux_denoise "$AUX_DENOISE"
+    --aux_denoise_sigmas "$AUX_DENOISE_SIGMAS"
 )
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
@@ -99,6 +110,9 @@ if [ "$SIPL_LITE" = "1" ]; then
 fi
 if [ "$COMPILE" = "1" ]; then
     TRAIN_ARGS+=(--compile)
+fi
+if [ "$FORCE_AUG_NO_IDENTITY" = "1" ]; then
+    TRAIN_ARGS+=(--force_aug_no_identity)
 fi
 
 python train_hw4.py "${TRAIN_ARGS[@]}"

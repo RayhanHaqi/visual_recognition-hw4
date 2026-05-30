@@ -58,6 +58,20 @@ class InferenceTTATest(unittest.TestCase):
         self.assertEqual(unwrapped["conv_in.weight"], 4)
         self.assertEqual(len(unwrapped), len(wrapped))
 
+    def test_strip_checkpoint_wrapper_removes_backbone_blocks_prefix(self):
+        wrapped = {
+            "backbone.encoder_level1.blocks.0.attn.weight": 1,
+            "backbone.latent.blocks.5.norm.weight": 2,
+            "input_scale.weight": 3,
+        }
+
+        unwrapped = _strip_checkpoint_wrapper(wrapped)
+
+        self.assertEqual(unwrapped["backbone.encoder_level1.0.attn.weight"], 1)
+        self.assertEqual(unwrapped["backbone.latent.5.norm.weight"], 2)
+        self.assertEqual(unwrapped["input_scale.weight"], 3)
+        self.assertEqual(len(unwrapped), len(wrapped))
+
 
 if __name__ == "__main__":
     unittest.main()

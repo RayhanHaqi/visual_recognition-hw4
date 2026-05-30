@@ -89,9 +89,12 @@ def _strip_checkpoint_wrapper(state_dict):
     for k, v in state_dict.items():
         clean = k
         for attr in _CHECKPOINT_ATTRS:
-            prefix = f"{attr}.blocks."
-            if k.startswith(prefix):
-                clean = attr + k[len(prefix) - 1:]
+            for module_prefix in ("", "backbone."):
+                prefix = f"{module_prefix}{attr}.blocks."
+                if k.startswith(prefix):
+                    clean = f"{module_prefix}{attr}." + k[len(prefix):]
+                    break
+            if clean != k:
                 break
         result[clean] = v
     return result
