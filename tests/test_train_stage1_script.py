@@ -41,7 +41,7 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn("--ema", script)
         self.assertIn("--ema_decay", script)
         self.assertIn("val_psnr", script)
-        self.assertIn('mode="max" if args.monitor == "val_psnr" else "min"', script)
+        self.assertIn('psnr_monitors = {"val_psnr", "val_psnr_derain", "val_psnr_desnow"}', script)
         self.assertIn('{val_psnr:.6f}', script)
         self.assertIn("EMAWeightAveraging", script)
         self.assertIn("save_top_k=args.save_top_k", script)
@@ -86,10 +86,18 @@ class TrainStage1ScriptTest(unittest.TestCase):
         self.assertIn('--aux_denoise "$AUX_DENOISE"', text)
         self.assertIn('--aux_denoise_sigmas "$AUX_DENOISE_SIGMAS"', text)
 
+    def test_stage1_script_exposes_strategy_c_flags(self):
+        text = Path("train_stage1.sh").read_text()
+        self.assertIn('DE_TYPE=${DE_TYPE:-desnow derain}', text)
+        self.assertIn('DISTILL_DIR=${DISTILL_DIR:-}', text)
+        self.assertIn('--de_type $DE_TYPE', text)
+        self.assertIn('--distill_dir "$DISTILL_DIR"', text)
+        self.assertIn('metric.startswith("val_psnr")', text)
+
     def test_stage1_script_parses_metric_without_ckpt_suffix(self):
         script = Path("train_stage1.sh").read_text()
 
-        self.assertIn(r"rf'{metric}=([0-9]+(?:\.[0-9]+)?)'", script)
+        self.assertIn("re.escape(metric)", script)
         self.assertIn('missing = float("-inf") if reverse else float("inf")', script)
         self.assertNotIn(r"val_loss=([0-9.]+)", script)
 

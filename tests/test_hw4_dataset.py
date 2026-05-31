@@ -50,6 +50,37 @@ class AuxiliaryDenoiseDatasetTest(unittest.TestCase):
         self.assertEqual(sorted({sample['sigma'] for sample in aux}), [15, 25, 50])
 
 
+class DistillDatasetTest(unittest.TestCase):
+    def test_distill_samples_append_with_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            distill = Path(tmp) / "Distill"
+            degraded_dir = distill / "degraded"
+            gt_dir = distill / "gt"
+            degraded_dir.mkdir(parents=True)
+            gt_dir.mkdir(parents=True)
+            Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(degraded_dir / "0.png")
+            Image.fromarray(np.ones((16, 16, 3), dtype=np.uint8)).save(gt_dir / "0.png")
+            (distill / "labels.txt").write_text("1\n", encoding="utf-8")
+
+            args = argparse.Namespace(
+                data_dir='PromptIR/data',
+                de_type=['derain'],
+                merge_val=False,
+                derain_oversample=1,
+                aux_denoise=0,
+                distill_dir=str(distill),
+            )
+            with mock.patch.object(HW4TrainDataset, '_init_ids'):
+                ds = HW4TrainDataset(args)
+                ds.sample_ids = []
+                ds.rain_ids = []
+                ds.snow_ids = []
+                HW4TrainDataset._merge_ids(ds)
+
+            self.assertEqual(len(ds.sample_ids), 1)
+            self.assertEqual(ds.sample_ids[0]['de_type'], 1)
+
+
 class HW4ValDatasetDegradationIdTest(unittest.TestCase):
     def _write_rgb(self, path):
         path.parent.mkdir(parents=True, exist_ok=True)

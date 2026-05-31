@@ -99,6 +99,31 @@ class HW4TrainDataset(Dataset):
             oversample = getattr(self.args, 'derain_oversample', 1)
             for _ in range(oversample):
                 self.sample_ids += self.rain_ids
+        distill_dir = getattr(self.args, 'distill_dir', '') or ''
+        if distill_dir:
+            labels_path = os.path.join(distill_dir, 'labels.txt')
+            degraded_dir = os.path.join(distill_dir, 'degraded')
+            gt_dir = os.path.join(distill_dir, 'gt')
+            if not os.path.isfile(labels_path):
+                raise FileNotFoundError(f"Missing distill labels file: {labels_path}")
+            with open(labels_path, encoding='utf-8') as f:
+                de_ids = [line.strip() for line in f if line.strip()]
+            names = sorted(
+                name for name in os.listdir(degraded_dir)
+                if name.lower().endswith('.png')
+            )
+            if len(names) != len(de_ids):
+                raise ValueError(
+                    f"Distill labels ({len(de_ids)}) do not match degraded images ({len(names)})"
+                )
+            for name, de_id in zip(names, de_ids):
+                self.sample_ids.append({
+                    'degraded_path': os.path.join(degraded_dir, name),
+                    'clean_path': os.path.join(gt_dir, name),
+                    'de_type': int(de_id),
+                })
+            print(f"Distill samples: {len(names)}")
+
         if getattr(self.args, 'aux_denoise', 0) > 0:
             sigmas = parse_sigmas(getattr(self.args, 'aux_denoise_sigmas', '15,25,50'))
             clean_sources = []

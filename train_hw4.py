@@ -386,7 +386,17 @@ def main():
     parser.add_argument('--merge_val', action='store_true', help='Merge val into train (stage 2)')
     parser.add_argument('--save_top_k', type=int, default=1, help='Number of best validation checkpoints to keep')
     parser.add_argument('--every_n_epochs', type=int, default=5, help='Checkpoint interval in epochs')
-    parser.add_argument('--monitor', choices=['val_loss', 'val_psnr'], default='val_loss')
+    parser.add_argument(
+        '--monitor',
+        choices=['val_loss', 'val_psnr', 'val_psnr_derain', 'val_psnr_desnow'],
+        default='val_loss',
+    )
+    parser.add_argument(
+        '--distill_dir',
+        type=str,
+        default='',
+        help='Optional dir with Distill/degraded, Distill/gt, labels.txt for pseudo-target training',
+    )
     parser.add_argument('--ema', action='store_true', help='Use EMA weights for validation/checkpointing')
     parser.add_argument('--ema_decay', type=float, default=0.9999)
     parser.add_argument('--loss_type', choices=['l1', 'charbonnier', 'l1_mse', 'charbonnier_mse'], default='l1',
@@ -451,13 +461,20 @@ def main():
         model = torch.compile(model)
         print("  compile: enabled (torch.compile applied)")
 
+    psnr_monitors = {"val_psnr", "val_psnr_derain", "val_psnr_desnow"}
+    monitor_mode = "max" if args.monitor in psnr_monitors else "min"
+    checkpoint_filename = (
+        f"promptir-{{epoch:02d}}-{{val_loss:.6f}}-{{{args.monitor}:.6f}}"
+        if args.monitor != "val_loss"
+        else "promptir-{epoch:02d}-{val_loss:.6f}-{val_psnr:.6f}"
+    )
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.ckpt_dir,
         every_n_epochs=args.every_n_epochs,
         save_top_k=args.save_top_k,
         monitor=None if args.no_val else args.monitor,
-        mode="max" if args.monitor == "val_psnr" else "min",
-        filename="promptir-{epoch:02d}-{val_loss:.6f}-{val_psnr:.6f}",
+        mode=monitor_mode,
+        filename=checkpoint_filename,
     )
     callbacks = [checkpoint_callback, TimeEstimateProgressBar()]
     if args.ema:

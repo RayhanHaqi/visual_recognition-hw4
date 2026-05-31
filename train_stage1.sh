@@ -34,6 +34,8 @@ COLOR_AUG_PROB=${COLOR_AUG_PROB:-0.0}
 FORCE_AUG_NO_IDENTITY=${FORCE_AUG_NO_IDENTITY:-0}
 AUX_DENOISE=${AUX_DENOISE:-0}
 AUX_DENOISE_SIGMAS=${AUX_DENOISE_SIGMAS:-15,25,50}
+DE_TYPE=${DE_TYPE:-desnow derain}
+DISTILL_DIR=${DISTILL_DIR:-}
 RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}}
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
@@ -64,6 +66,8 @@ echo "Color aug prob: ${COLOR_AUG_PROB}"
 echo "Force aug no identity: ${FORCE_AUG_NO_IDENTITY}"
 echo "Aux denoise: ${AUX_DENOISE}"
 echo "Aux denoise sigmas: ${AUX_DENOISE_SIGMAS}"
+echo "DE_TYPE: ${DE_TYPE}"
+echo "Distill dir: ${DISTILL_DIR:-<none>}"
 echo "Run name: $RUN_NAME"
 
 mkdir -p "$CKPT_DIR"
@@ -98,7 +102,11 @@ TRAIN_ARGS=(
     --color_aug_prob "$COLOR_AUG_PROB"
     --aux_denoise "$AUX_DENOISE"
     --aux_denoise_sigmas "$AUX_DENOISE_SIGMAS"
+    --de_type $DE_TYPE
 )
+if [ -n "$DISTILL_DIR" ]; then
+    TRAIN_ARGS+=(--distill_dir "$DISTILL_DIR")
+fi
 if [ "$EMA" = "1" ]; then
     TRAIN_ARGS+=(--ema --ema_decay "$EMA_DECAY")
 fi
@@ -130,10 +138,10 @@ from pathlib import Path
 
 ckpts = list(Path(sys.argv[1]).glob("promptir-epoch*.ckpt"))
 metric = sys.argv[2]
-reverse = metric == "val_psnr"
+reverse = metric.startswith("val_psnr")
 missing = float("-inf") if reverse else float("inf")
 def metric_value(path):
-    match = re.search(rf'{metric}=([0-9]+(?:\.[0-9]+)?)', path.name)
+    match = re.search(rf'{re.escape(metric)}=([0-9]+(?:\.[0-9]+)?)', path.name)
     return float(match.group(1)) if match else missing
 for path in sorted(ckpts, key=metric_value, reverse=reverse)[:1]:
     print(path)
@@ -169,11 +177,11 @@ from pathlib import Path
 ckpt_dir = Path(sys.argv[1])
 limit = int(sys.argv[2])
 metric = sys.argv[3]
-reverse = metric == "val_psnr"
+reverse = metric.startswith("val_psnr")
 ckpts = list(ckpt_dir.glob("promptir-epoch*.ckpt"))
 missing = float("-inf") if reverse else float("inf")
 def metric_value(path):
-    match = re.search(rf'{metric}=([0-9]+(?:\.[0-9]+)?)', path.name)
+    match = re.search(rf'{re.escape(metric)}=([0-9]+(?:\.[0-9]+)?)', path.name)
     return float(match.group(1)) if match else missing
 for path in sorted(ckpts, key=metric_value, reverse=reverse)[:limit]:
     print(path)
