@@ -40,6 +40,10 @@ DISTILL_DIR=${DISTILL_DIR:-}
 RUN_NAME=${RUN_NAME:-stage1-p${PATCH_SIZE}-bs${BATCH_SIZE}-${LOSS_TYPE}${MSE_WEIGHT//./}}
 CKPT_DIR="checkpoints/${RUN_NAME}"
 
+if [ "$EPOCHS" -lt "$CKPT_EVERY_N_EPOCHS" ]; then
+    CKPT_EVERY_N_EPOCHS=$EPOCHS
+fi
+
 echo "=== Stage 1: Training with validation ==="
 echo "Patch size: $PATCH_SIZE"
 echo "Batch size: $BATCH_SIZE"
