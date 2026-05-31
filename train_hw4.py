@@ -11,7 +11,10 @@ os.environ.setdefault("TRITON_INTERPRET", "1")
 import torch
 
 torch.set_float32_matmul_precision('high')
-torch.backends.cudnn.benchmark = True
+if os.environ.get('DISABLE_CUDNN', '0') == '1':
+    torch.backends.cudnn.enabled = False
+else:
+    torch.backends.cudnn.benchmark = True
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -362,6 +365,11 @@ def main():
     parser.add_argument('--num_refinement_blocks', type=int, default=4,
                         help='PromptIR refinement block count')
     parser.add_argument('--compile', action='store_true', help='Use torch.compile for training speed')
+    parser.add_argument(
+        '--disable_cudnn',
+        action='store_true',
+        help='Disable cuDNN (recommended for RTX 50xx / Blackwell smoke tests)',
+    )
     parser.add_argument('--derain_oversample', type=int, default=1,
                         help='Duplicate rain samples N times per epoch (1=no oversampling)')
     parser.add_argument('--rain_loss_weight', type=float, default=1.0,
@@ -412,6 +420,9 @@ def main():
     parser.add_argument('--sipl_refine_weight', type=float, default=0.5,
                         help='Weight of refinement pass loss in SIPL-lite')
     args = parser.parse_args()
+    if args.disable_cudnn:
+        torch.backends.cudnn.enabled = False
+        print("  cuDNN: disabled (--disable_cudnn)")
     if args.no_val and args.save_top_k not in (-1, 0, 1):
         raise ValueError("--no_val supports --save_top_k only -1, 0, or 1 because no validation metric is available")
 
