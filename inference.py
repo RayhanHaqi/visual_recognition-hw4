@@ -112,7 +112,8 @@ def inference(ckpt_path, test_dir, output_path, device="cuda", use_tta=False, ta
     print(f"Num blocks: {num_blocks}")
     print(f"Num refinement blocks: {num_refinement_blocks}")
 
-    ckpt = torch.load(ckpt_path, map_location=device)
+    # Load on CPU first (avoids failures when CUDA driver state is flaky after long trains).
+    ckpt = torch.load(ckpt_path, map_location="cpu")
 
     if "state_dict" in ckpt:
         state_dict = {}
