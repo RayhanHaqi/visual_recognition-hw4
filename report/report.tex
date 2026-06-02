@@ -105,7 +105,7 @@ The total model size is 35.6 million trainable parameters, well-suited for $256 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.55\textwidth]{promptir_architecture.pdf}
+\includegraphics[width=0.75\textwidth]{promptir_architecture.png}
 \caption{PromptIR architecture: a U-Net encoder-decoder with 47 transformer blocks across four spatial levels. Encoder levels use 4, 6, 6, and 8 transformer blocks with increasing head counts (1, 2, 4, 8). Three Prompt Generation Modules (decoder only) produce degradation-specific prompts at levels 1--3. Skip connections link encoder and decoder at matching spatial resolutions. The refinement stage applies 4 additional transformer blocks before the output convolution and residual connection.}
 \label{fig:architecture}
 \end{figure}
