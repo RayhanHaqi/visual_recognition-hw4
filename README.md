@@ -12,6 +12,12 @@ All-in-one **rain + snow** image restoration with a single **PromptIR** trained 
 
 **Workflow:** Code on GitHub; `data/`, `PromptIR/data/`, `checkpoints/`, and `submission/*.zip` stay local (see `.gitignore`).
 
+## CodaBench result
+
+Public leaderboard entry (submission **765089**, `ensemble-r9-r8-r11avg5.zip`, 2026-05-29):
+
+![CodaBench leaderboard](report/figure/codabench_leaderboard.png)
+
 ---
 
 ## Quick start

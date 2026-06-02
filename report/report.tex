@@ -149,6 +149,13 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 
 \begin{figure}[htbp]
 \centering
+\includegraphics[width=0.98\textwidth]{figure/codabench_leaderboard.png}
+\caption{CodaBench public leaderboard snapshot: rank 20, submission ID 765089 (\texttt{ensemble-r9-r8-r11avg5.zip}), student ID 313540001, public PSNR 31.85 (2026-05-29).}
+\label{fig:codabench}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
 \includegraphics[width=0.95\textwidth]{training_curves.pdf}
 \caption{Training and validation curves for Run 8 (L1 loss, PSNR-monitored) and Run 9 (L1+MSE, $\lambda=0.05$). Left: validation PSNR plateaus around epoch 80--100 for both runs, with Run 9 achieving a slightly higher best val\_psnr (30.749 vs 30.718). Right: training and validation loss curves converge without overfitting; Run 9's training loss tracks slightly below Run 8's.}
 \label{fig:training_curves}
