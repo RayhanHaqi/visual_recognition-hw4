@@ -12,6 +12,7 @@
 \usepackage{setspace}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{tabularx}
 \usepackage{multirow}
 \usepackage{CJKutf8}
 \onehalfspacing
@@ -172,9 +173,10 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 \centering
 \caption{Progression of experiments and CodaBench public PSNR scores. Bold indicates current best.}
 \label{tab:results}
-\small
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}clc>{\raggedright\arraybackslash}p{4.8cm}c@{}}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}>{\raggedleft\arraybackslash}p{0.55cm} >{\raggedright\arraybackslash}X >{\centering\arraybackslash}p{0.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.35cm}@{}}
 \toprule
 \textbf{Run} & \textbf{Config} & \textbf{Ep.} & \textbf{Inference / Notes} & \textbf{PSNR} \\ \midrule
 1 & p128, L1, bs=8 & 149 & original & 30.52 \\
@@ -196,7 +198,7 @@ Table \ref{tab:results} summarizes all experiments and their CodaBench public PS
 17 & screen-b1 aux denoise (8 ep) & 07 & TTA / avg1 TTA & 25.75 / 25.75 \\
 18 & distill from routed specialists & 100 & original / TTA / avg5 TTA & 26.27 / 26.28 / 26.36 \\
 \textbf{Ens.} & \textbf{R9 + R8 + R11 avg5 + R11 TTA ensemble} & \textbf{---} & \textbf{prediction ensemble (equal weight)} & \textbf{31.84--31.85} \\ \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Key Findings}
