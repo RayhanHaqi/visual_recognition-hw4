@@ -1,6 +1,6 @@
 # Image Restoration with PromptIR
 
-**NYCU Visual Recognition using Deep Learning (Spring 2026) — Homework 4**
+**NYCU Visual Recognition using Deep Learning (Spring 2026), Homework 4**
 
 [![Framework](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Model](https://img.shields.io/badge/Model-PromptIR-blue?style=for-the-badge)](https://github.com/va1shn9v/PromptIR)
@@ -8,7 +8,7 @@
 
 **Author:** Muhammad Rayhan Athaillah (賴瑞涵) | Student ID: 313540001 | NYCU
 
-All-in-one **rain + snow** image restoration with a single **PromptIR** trained from scratch (no external data, no pretrained weights). Best public PSNR: **31.84–31.85** via prediction ensembling; best **single** checkpoint: **31.77** (Run 9, L1+MSE + TTA).
+All-in-one **rain + snow** image restoration with a single **PromptIR** trained from scratch (no external data, no pretrained weights). Best public PSNR: **31.84 to 31.85** via prediction ensembling; best **single** checkpoint: **31.77** (Run 9, L1+MSE + TTA).
 
 **Workflow:** Code on GitHub; `data/`, `PromptIR/data/`, `checkpoints/`, and `submission/*.zip` stay local (see `.gitignore`).
 
@@ -51,7 +51,7 @@ Restore 256×256 images degraded by **rain streaks** or **snow overlay** using o
 **Constraints (course):**
 
 - PromptIR backbone (module changes allowed; document in report)
-- Single model for both degradations (competition best uses inference-time ensemble of four PromptIR runs — see report)
+- Single model for both degradations (competition best uses inference-time ensemble of four PromptIR runs; see report)
 - No external data; train from scratch
 
 ---
@@ -71,7 +71,7 @@ python setup.py
 3. Download the HW4 dataset from Google Drive into `data/hw4_realse_dataset/`
 4. Run `prepare_data.py` → `PromptIR/data/{Train,Val,Test}`
 
-**Hardware:** RTX 4090 recommended (BS 1–4 at patch 256). RTX 5090 was unstable in our runs (CUDA/cuDNN); use 4090 for long jobs.
+**Hardware:** RTX 4090 recommended (BS 1 to 4 at patch 256). RTX 5090 was unstable in our runs (CUDA/cuDNN); use 4090 for long jobs.
 
 ---
 
@@ -112,7 +112,7 @@ python ensemble_predictions.py \
   --output submission/ensemble-diverse.zip
 ```
 
-### Strategy C helpers (specialists + distill — experimental)
+### Strategy C helpers (specialists + distill, experimental)
 
 ```bash
 DE_TYPE=derain bash train_stage1.sh   # derain-only specialist
@@ -122,7 +122,7 @@ python make_distill_targets.py --zip submission/specialist-routed.zip --output_d
 DISTILL_DIR=PromptIR/data/Distill bash train_stage1.sh
 ```
 
-Distillation to one model scored ~26.3 public PSNR in our runs — **not** used for the final leaderboard entry.
+Distillation to one model scored ~26.3 public PSNR in our runs; **not** used for the final leaderboard entry.
 
 ---
 
@@ -130,7 +130,7 @@ Distillation to one model scored ~26.3 public PSNR in our runs — **not** used 
 
 | Submission (local filename) | Public PSNR | Notes |
 | --- | ---: | --- |
-| **ensemble-diverse.zip** | **31.84–31.85** | **Final CodaBench entry** (R9+R8+R11 avg5+R11 TTA, equal weight) |
+| **ensemble-diverse.zip** | **31.84 to 31.85** | **Final CodaBench entry** (R9+R8+R11 avg5+R11 TTA, equal weight) |
 | stage1-p256-tta-run9-l1mse.zip | 31.77 | Best **single** model (L1+MSE λ=0.05, TTA) |
 | stage1-p256-tta.zip | 31.73 | Run 8, val_psnr monitor |
 | stage1-p256-avg5-tta-run11-l1mse-ema.zip | 31.73 | Run 11 + EMA (ensemble member) |
@@ -151,7 +151,7 @@ Full experiment table and analysis: `report/report.pdf` (build with `cd report &
 ├── ensemble_predictions.py
 ├── hw4_dataset.py
 ├── route_specialists.py / make_distill_targets.py
-├── scripts/              # 4090 run helpers (run21–23, recovery)
+├── scripts/              # 4090 run helpers (run21 to 23, recovery)
 ├── tests/
 ├── report/               # LaTeX report + figures (PDF not required in git)
 └── requirements.txt
