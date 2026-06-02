@@ -8,6 +8,7 @@
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\usepackage{xurl}
 \usepackage{cite}
 \usepackage{setspace}
 \usepackage{booktabs}
@@ -295,7 +296,7 @@ Several strategies were evaluated and found to be harmful or ineffective:
     \item \textbf{Rain Loss Weighting (Run 14):} Per-sample derain loss weighting degraded both derain and desnow, confirming that loss rebalancing distorts the PSNR-aligned L1+MSE optimization.
     \item \textbf{Derain Oversampling:} Not evaluated independently; lower priority after prediction ensembling became the clear winning strategy.
     \item \textbf{Strategy C (Specialists + Distillation):} Task-only specialists (Runs 15--16) reached strong validation on their respective degradations but Run~18 distillation scored only $\sim$26.3 public PSNR --- far below the 31.84 ensemble. Do not use for final submission.
-    \item \textbf{RTX 5090 / Dual-GPU Training:} Blackwell GPU training caused \texttt{cudaErrorLaunchFailure} and post-reboot SSH instability; all reliable results used RTX~4090 only with \texttt{DISABLE\_CUDNN} avoided on 50-series hardware.
+    \item \textbf{RTX 5090 / Dual-GPU Training:} Blackwell GPU training caused recurring CUDA launch failures and post-reboot SSH instability; all reliable results used RTX~4090 only (\texttt{DISABLE\_CUDNN=1} on 50-series when required).
 \end{itemize}
 
 % ==========================================
@@ -322,7 +323,7 @@ The fact that task conditioning and EMA both failed despite strong theoretical m
 \subsubsection{Recommendations for Further Improvement}
 Prediction ensembling at 31.84--31.85 is the strongest result. Strategy~C showed that specialist models and pseudo-target distillation are \emph{not} recommended on this dataset: local validation gains do not transfer to the hidden test set. Further improvements, if pursued, should focus on additional diverse full all-in-one models for ensembling rather than task-only training or distillation. Weighted ensembles (e.g., 60\% Run~9) may yield marginal 0.02--0.05 dB gains.
 
-The submission with the best public PSNR is \texttt{submission/ensemble-diverse.zip} (or equivalent weighted variants at 31.85) --- prediction ensemble of Run~9 TTA + Run~8 TTA + Run~11 avg5 TTA + Run~11 TTA. The single-model best is \texttt{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77. \textbf{Do not submit} Run~18 distillation checkpoints (public PSNR $\sim$26.3).
+The submission with the best public PSNR is \path{submission/ensemble-diverse.zip} (or equivalent weighted variants at 31.85)---prediction ensemble of Run~9 TTA, Run~8 TTA, Run~11 avg5 TTA, and Run~11 TTA. The single-model best is \path{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77. \textbf{Do not submit} Run~18 distillation checkpoints (public PSNR $\sim$26.3).
 
 % ==========================================
 % REFERENCES
