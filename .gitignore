@@ -1,17 +1,49 @@
-data/hw4_realse_dataset/
+# Agent / local planning (published README is the public doc)
+AGENTS.md
+docs/
+cursor/
+
+# Data & vendored PromptIR (clone via setup.py)
+data/
+PromptIR/
 __MACOSX/
-__pycache__/
-*.pyc
-*.pyo
-.DS_Store
+hw4_dataset.zip
+example_submission/
+release_folder/
+
+# Weights & checkpoints
 checkpoints/
 *.ckpt
 *.pth
 
+# Training logs (TensorBoard); regenerate locally
+log/*
+!log/.gitkeep
+
+# Submissions: regenerate with inference.py (large pred.npz zips)
+submission/*
+!submission/.gitkeep
 submission/pred.npz
-example_submission/
-release_folder/
-PromptIR/
-report/
+
+# E3 hand-in artifacts (local only)
+313540001_HW4.zip
+313540001_HW4/
+
+# Report LaTeX build junk
+report/*.aux
+report/*.log
+report/*.fls
+report/*.fdb_latexmk
+report/*.out
+report/*.synctex.gz
+
+# Course slide PDF at repo root (copy in docs/ is ignored)
+(114-2)*.pdf
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 .ipynb_checkpoints/
-hw4_dataset.zip
+.DS_Store

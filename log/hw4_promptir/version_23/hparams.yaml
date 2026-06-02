@@ -1,3 +1,0 @@
-lr: 5.0e-05
-max_epochs: 149
-warmup_epochs: 15
