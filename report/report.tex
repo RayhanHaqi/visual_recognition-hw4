@@ -318,11 +318,6 @@ The key contributions are:
 
 The fact that task conditioning and EMA both failed despite strong theoretical motivation highlights an important lesson: on small paired datasets trained from scratch, simple recipe improvements (loss function, checkpoint selection, TTA) often outperform architectural complications. The PromptIR transformer backbone is already a strong restoration model; squeezing additional gains requires careful empirical tuning rather than module additions that risk overfitting.
 
-\subsubsection{Recommendations for Further Improvement}
-Prediction ensembling at 31.84 to 31.85 is the strongest result. Strategy~C showed that specialist models and pseudo-target distillation are \emph{not} recommended on this dataset: local validation gains do not transfer to the hidden test set. Further improvements, if pursued, should focus on additional diverse full all-in-one models for ensembling rather than task-only training or distillation. Weighted ensembles (e.g., 60\% Run~9) may yield marginal 0.02 to 0.05 dB gains.
-
-The submission with the best public PSNR is \path{submission/ensemble-diverse.zip} (or equivalent weighted variants at 31.85), prediction ensemble of Run~9 TTA, Run~8 TTA, Run~11 avg5 TTA, and Run~11 TTA. The single-model best is \path{submission/stage1-p256-tta-run9-l1mse.zip} at 31.77. \textbf{Do not submit} Run~18 distillation checkpoints (public PSNR $\sim$26.3).
-
 % ==========================================
 % REFERENCES
 % ==========================================
